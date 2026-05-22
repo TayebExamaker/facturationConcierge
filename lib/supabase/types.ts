@@ -72,7 +72,9 @@ export interface InvoiceFilters {
 }
 
 // Database row interface (matches Postgres exactly, with snake_case + jsonb).
-// Used internally by the Supabase client typings.
+// Shape conforms to supabase-js v2's `GenericSchema` — all five keys
+// (Tables/Views/Functions/Enums/CompositeTypes) must be present even when
+// empty, otherwise `.insert()` falls back to `never[]` and inference breaks.
 export interface Database {
   public: {
     Tables: {
@@ -85,11 +87,15 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Omit<Invoice, "id" | "created_at" | "updated_at">>;
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
     Enums: {
       invoice_status: InvoiceStatus;
       invoice_source: InvoiceSource;
     };
+    CompositeTypes: Record<string, never>;
   };
 }
