@@ -56,7 +56,9 @@ export async function createInvoice(input: InvoiceInput): Promise<Invoice> {
 
   const { data, error } = await supabase
     .from("invoices")
-    .insert(row)
+    // Supabase-js generic inference is brittle when Database has an
+    // empty schema — cast to bypass; runtime shape is correct.
+    .insert(row as never)
     .select("*")
     .single();
 
@@ -95,7 +97,7 @@ export async function updateInvoice(
 
   const { data, error } = await supabase
     .from("invoices")
-    .update(patch)
+    .update(patch as never)
     .eq("id", id)
     .select("*")
     .single();
@@ -134,7 +136,7 @@ export async function setInvoiceStatus(
   const supabase = createClient();
   const { data, error } = await supabase
     .from("invoices")
-    .update({ status })
+    .update({ status } as never)
     .eq("id", id)
     .select("*")
     .single();
