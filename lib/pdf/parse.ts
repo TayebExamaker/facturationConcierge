@@ -1,0 +1,300 @@
+// Server-side PDF text extraction + heuristic field parsing.
+// Uses pdfjs-dist legacy build for Node compatibility.
+
+import { isKnownCurrency } from "@/lib/currencies";
+
+export interface ParsedPdf {
+  invoiceNumber?: number;
+  clientName?: string;
+  clientAddress?: string;
+  date?: string; // ISO YYYY-MM-DD when possible
+  total?: number;
+  currency?: string;
+  rawText: string;
+  warnings: string[];
+}
+
+// Labels we stop on when collecting the To: block multi-line — anything past
+// these means we've left the recipient section.
+const STOP_LABELS = [
+  /^(from|email|tel|phone|fax|work|date|ref|trip|invoice|po|terms|currency|attn|attention|subject)\s*[:#]/i,
+];
+
+const SYMBOL_TO_CODE: Record<string, string> = {
+  $: "USD",
+  "€": "EUR",
+  "£": "GBP",
+  "¥": "JPY",
+  "₹": "INR",
+  "₩": "KRW",
+  "₽": "RUB",
+  "₺": "TRY",
+  "₪": "ILS",
+  "₦": "NGN",
+  "₫": "VND",
+  "฿": "THB",
+  "₱": "PHP",
+  "د.إ": "AED",
+};
+
+/**
+ * Parse a PDF file (Buffer/File) and extract best-effort invoice fields.
+ * Never throws on extraction failure — returns warnings instead.
+ */
+export async function parseInvoicePdf(file: File | Buffer): Promise<ParsedPdf> {
+  const warnings: string[] = [];
+  let rawText = "";
+
+  try {
+    rawText = await extractText(file);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      rawText: "",
+      warnings: [`Failed to extract text from PDF: ${msg}`],
+    };
+  }
+
+  if (!rawText.trim()) {
+    warnings.push("PDF contained no extractable text (likely scanned image)");
+  }
+
+  const invoiceNumber = extractInvoiceNumber(rawText, warnings);
+  const { clientName, clientAddress } = extractRecipient(rawText, warnings);
+  const date = extractDate(rawText, warnings);
+  const currency = extractCurrency(rawText, warnings);
+  const total = extractTotal(rawText, warnings);
+
+  return {
+    invoiceNumber,
+    clientName,
+    clientAddress,
+    date,
+    total,
+    currency,
+    rawText,
+    warnings,
+  };
+}
+
+async function extractText(file: File | Buffer): Promise<string> {
+  const data = await toUint8Array(file);
+
+  // Lazy import for Node-friendly entrypoint.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdfjs: any = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  // In Node there is no worker; disabling avoids "Cannot find module 'pdf.worker'" errors.
+  if (pdfjs.GlobalWorkerOptions) {
+    pdfjs.GlobalWorkerOptions.workerSrc = "";
+  }
+
+  const doc = await pdfjs.getDocument({
+    data,
+    disableWorker: true,
+    isEvalSupported: false,
+    useSystemFonts: true,
+  }).promise;
+
+  const pageTexts: string[] = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i);
+    const content = await page.getTextContent();
+    // Reconstruct line-ish layout: join items with spaces but break on large Y jumps.
+    let lastY: number | null = null;
+    let line = "";
+    const lines: string[] = [];
+    for (const item of content.items as Array<{ str: string; transform: number[] }>) {
+      const y = item.transform?.[5] ?? 0;
+      if (lastY !== null && Math.abs(y - lastY) > 2) {
+        lines.push(line.trim());
+        line = "";
+      }
+      line += (line && !line.endsWith(" ") ? " " : "") + item.str;
+      lastY = y;
+    }
+    if (line.trim()) lines.push(line.trim());
+    pageTexts.push(lines.join("\n"));
+  }
+
+  try {
+    await doc.destroy();
+  } catch {
+    // ignore
+  }
+
+  return pageTexts.join("\n\n");
+}
+
+async function toUint8Array(file: File | Buffer): Promise<Uint8Array> {
+  if (typeof Buffer !== "undefined" && file instanceof Buffer) {
+    return new Uint8Array(file.buffer, file.byteOffset, file.byteLength);
+  }
+  // Web File / Blob
+  const ab = await (file as File).arrayBuffer();
+  return new Uint8Array(ab);
+}
+
+function extractInvoiceNumber(text: string, warnings: string[]): number | undefined {
+  // Look near "invoice" / "facture" keywords first.
+  const near = text.match(
+    /(?:invoice|facture)[^\n]{0,40}?#?\s*(\d{3,6})/i
+  );
+  if (near) return parseInt(near[1], 10);
+
+  // Standalone label patterns like "Invoice No.: 2734" or "#2734"
+  const standalone = text.match(/#\s*(\d{3,6})/);
+  if (standalone) return parseInt(standalone[1], 10);
+
+  warnings.push("Could not detect invoice number");
+  return undefined;
+}
+
+/**
+ * Pull the recipient block: name + any subsequent company/address lines that
+ * follow before we hit another labeled field. Handles both:
+ *
+ *   To: Moheen Ahmed                        (inline form)
+ *
+ * and the multi-line layout common in charter quotes / bookings:
+ *
+ *   To:    Nathan Allan Sanahuja 4964307
+ *          CONCIERGE ONE GROUP LTD
+ *          12 Rue de la Paix, Paris
+ *   Email: nathan@one-concierge.com
+ */
+function extractRecipient(
+  text: string,
+  warnings: string[],
+): { clientName?: string; clientAddress?: string } {
+  const lines = text.split(/\r?\n/).map((l) => l.replace(/\s+$/g, ""));
+
+  // Anchor: a line containing the "To" label (alone, or label + value inline).
+  let toIdx = -1;
+  let inlineValue: string | undefined;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^\s*(?:bill(?:ed)?\s+)?to\s*:?\s*(.*)$/i);
+    if (m && /(?:bill(?:ed)?\s+)?to\s*:/i.test(lines[i])) {
+      toIdx = i;
+      inlineValue = m[1].trim() || undefined;
+      break;
+    }
+  }
+  if (toIdx === -1) {
+    warnings.push("Could not detect recipient block");
+    return {};
+  }
+
+  // Collect inline value (if any) + up to 5 subsequent non-empty lines until we
+  // hit another known label (Email:, From:, etc.) or an obvious break.
+  const collected: string[] = [];
+  if (inlineValue) collected.push(inlineValue);
+  for (let j = toIdx + 1; j < lines.length && collected.length < 6; j++) {
+    const ln = lines[j].trim();
+    if (!ln) {
+      if (collected.length) break;
+      continue;
+    }
+    if (STOP_LABELS.some((re) => re.test(ln))) break;
+    collected.push(ln);
+  }
+
+  if (!collected.length) {
+    warnings.push("Could not detect client name");
+    return {};
+  }
+
+  // First line is the name. Strip a trailing numeric employee/customer id
+  // ("Nathan Allan Sanahuja 4964307" -> "Nathan Allan Sanahuja").
+  const rawName = collected[0];
+  const clientName = rawName.replace(/\s+\d{3,}\s*$/, "").trim();
+
+  const rest = collected.slice(1).filter(Boolean);
+  const clientAddress = rest.length ? rest.join("\n") : undefined;
+
+  return { clientName, clientAddress };
+}
+
+function extractDate(text: string, warnings: string[]): string | undefined {
+  // 1. ISO YYYY-MM-DD
+  const iso = text.match(/\b(20\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\b/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+
+  // 2. DD/MM/YYYY or DD-MM-YYYY
+  const dmy = text.match(/\b(0?[1-9]|[12]\d|3[01])[\/\-](0?[1-9]|1[0-2])[\/\-](20\d{2})\b/);
+  if (dmy) {
+    const d = dmy[1].padStart(2, "0");
+    const m = dmy[2].padStart(2, "0");
+    return `${dmy[3]}-${m}-${d}`;
+  }
+
+  // 3. Month DD, YYYY
+  const months: Record<string, string> = {
+    january: "01", february: "02", march: "03", april: "04",
+    may: "05", june: "06", july: "07", august: "08",
+    september: "09", october: "10", november: "11", december: "12",
+    jan: "01", feb: "02", mar: "03", apr: "04",
+    jun: "06", jul: "07", aug: "08", sep: "09", sept: "09",
+    oct: "10", nov: "11", dec: "12",
+  };
+  const mdy = text.match(/\b([A-Za-z]{3,9})\s+(\d{1,2}),?\s+(20\d{2})\b/);
+  if (mdy) {
+    const m = months[mdy[1].toLowerCase()];
+    if (m) {
+      return `${mdy[3]}-${m}-${mdy[2].padStart(2, "0")}`;
+    }
+  }
+
+  // 4. DD Month YYYY ("22 May 2026")
+  const dmyText = text.match(/\b(\d{1,2})\s+([A-Za-z]{3,9})\s+(20\d{2})\b/);
+  if (dmyText) {
+    const m = months[dmyText[2].toLowerCase()];
+    if (m) {
+      return `${dmyText[3]}-${m}-${dmyText[1].padStart(2, "0")}`;
+    }
+  }
+
+  warnings.push("Could not detect invoice date");
+  return undefined;
+}
+
+function extractCurrency(text: string, warnings: string[]): string | undefined {
+  // 1. Explicit ISO code (case-insensitive) — match common ones first.
+  const codeMatch = text.match(
+    /\b(USD|EUR|GBP|JPY|CHF|CAD|AUD|CNY|HKD|SGD|NZD|KRW|INR|BRL|MXN|RUB|TRY|ZAR|SEK|NOK|DKK|PLN|CZK|HUF|RON|ILS|ISK|AED|SAR|QAR|KWD|BHD|OMR|THB|IDR|MYR|PHP|VND|LAK|KHR|MMK|BND|ARS|CLP|COP|PEN|UYU|EGP|MAD|NGN|KES|GHS|BTC|USDT|USDC)\b/
+  );
+  if (codeMatch && isKnownCurrency(codeMatch[1])) return codeMatch[1].toUpperCase();
+
+  // 2. Symbol
+  for (const sym of Object.keys(SYMBOL_TO_CODE)) {
+    if (text.includes(sym)) return SYMBOL_TO_CODE[sym];
+  }
+
+  warnings.push("Could not detect currency");
+  return undefined;
+}
+
+function extractTotal(text: string, warnings: string[]): number | undefined {
+  // Find "total" keyword and look at numbers on the same/adjacent lines.
+  const lines = text.split(/\r?\n/);
+  const candidates: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (/total/i.test(lines[i])) {
+      const slice = [lines[i], lines[i + 1] ?? "", lines[i + 2] ?? ""].join(" ");
+      const nums = slice.match(/(?<![\d,])\d{1,3}(?:[,\s]\d{3})*(?:\.\d{1,8})?(?![\d,])/g);
+      if (nums) {
+        for (const n of nums) {
+          const cleaned = n.replace(/[,\s]/g, "");
+          const v = parseFloat(cleaned);
+          if (!Number.isNaN(v)) candidates.push(v);
+        }
+      }
+    }
+  }
+  if (candidates.length) {
+    // Largest near "total" is usually the grand total.
+    return Math.max(...candidates);
+  }
+
+  warnings.push("Could not detect total amount");
+  return undefined;
+}

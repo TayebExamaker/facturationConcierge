@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light palette — white surfaces, near-black ink, black accent */
+    --background: 0 0% 100%;            /* #FFFFFF */
+    --foreground: 222 47% 11%;          /* #0F172A — slate-900 */
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 222 47% 11%;             /* black-ish */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 17% 96%;           /* #F1F5F9 — slate-100 */
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 17% 96%;
+    --muted-foreground: 215 16% 47%;    /* slate-500 */
+
+    --accent: 222 47% 11%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 75% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;              /* slate-200 */
+    --input: 214 32% 91%;
+    --ring: 222 47% 11%;
+
+    --radius: 0.5rem;
+
+    --font-sans: "Poppins", "Inter", "Helvetica Neue", system-ui, sans-serif;
+    --font-serif: "Poppins", "Inter", system-ui, sans-serif;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  html, body { @apply bg-background text-foreground; }
+  body {
+    font-family: var(--font-sans);
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 { font-family: var(--font-sans); letter-spacing: -0.01em; font-weight: 600; }
+}
+
+@layer components {
+  /* Repurposed: was gold-on-navy, now a thin neutral divider. */
+  .gold-divider {
+    background: linear-gradient(90deg, transparent 0%, rgba(15, 23, 42, 0.18) 50%, transparent 100%);
+    height: 1px;
+  }
+  /* Repurposed: was gold accent text, now subtle dark accent. */
+  .gold-text { color: #0F172A; }
+
+  /* Clean white card with subtle slate-200 border and soft shadow. */
+  .luxury-card {
+    @apply bg-card border border-border/80 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.10)];
+  }
+}
+
+/* Print: minimal chrome, keep invoice readable. */
+@media print {
+  body { background: white; color: black; }
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  .luxury-card { box-shadow: none; }
+}
