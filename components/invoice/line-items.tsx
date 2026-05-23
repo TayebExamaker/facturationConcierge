@@ -62,9 +62,6 @@ export function LineItems({ control, register, watch, className }: LineItemsProp
     control,
     name: "items" as never,
   });
-  // Subscribe ONLY to currency. Per-row amount is computed inside each row via
-  // a scoped useWatch so a keystroke in row #2 doesn't re-render row #1's
-  // inputs (which on iOS PWA was eating the keystroke).
   const currency = watch("currency") ?? "USD";
 
   const handleAdd = () => {
@@ -75,7 +72,7 @@ export function LineItems({ control, register, watch, className }: LineItemsProp
 
   return (
     <div className={cn("space-y-3", className)}>
-      {/* Mobile layout (<sm) — cards stacked vertically. */}
+      {/* Mobile layout (<sm). */}
       <div className="space-y-3 sm:hidden">
         {isEmpty ? (
           <div className="luxury-card p-6 text-center text-sm text-muted-foreground">
@@ -96,7 +93,7 @@ export function LineItems({ control, register, watch, className }: LineItemsProp
         )}
       </div>
 
-      {/* Desktop / tablet layout (sm+) — table. */}
+      {/* Desktop / tablet layout (sm+). */}
       <div className="hidden sm:block overflow-x-auto luxury-card">
         <Table>
           <TableHeader>
@@ -161,21 +158,24 @@ interface LineRowProps {
 }
 
 /**
- * Mobile-only stacked card row. Scoped `useWatch` means only this row
- * re-renders when its own qty/price change — sibling rows stay quiet,
- * preserving input focus and accepted keystrokes on iOS Safari PWA.
+ * CRITICAL: this card MUST NOT subscribe to its own input values via useWatch.
+ * Re-rendering on every keystroke causes register() to be re-invoked, which
+ * hands React a brand-new ref callback, which React detaches/reattaches —
+ * react-hook-form then re-applies the stored value to the DOM input, wiping
+ * the character the user just typed. Visible symptom on desktop and mobile:
+ * the field appears to swallow keystrokes.
+ *
+ * Instead, we render the inputs once and isolate the live amount computation
+ * inside a tiny sibling component (LineAmount) that owns its own useWatch.
+ * Only the amount line re-renders on typing; the inputs themselves never do.
  */
-const MobileLineCard = React.memo(function MobileLineCard({
+function MobileLineCard({
   index,
   control,
   register,
   currency,
   onRemove,
 }: LineRowProps) {
-  const qty = useWatch({ control, name: `items.${index}.quantity` as never });
-  const price = useWatch({ control, name: `items.${index}.unit_price` as never });
-  const amount = (Number(qty) || 0) * (Number(price) || 0);
-
   return (
     <div className="luxury-card p-4 space-y-3">
       <div className="flex items-start justify-between gap-2">
@@ -243,30 +243,19 @@ const MobileLineCard = React.memo(function MobileLineCard({
         <span className="text-xs uppercase tracking-widest text-muted-foreground">
           Amount
         </span>
-        <span className="font-semibold tabular-nums">
-          {formatMoney(amount, currency)}
-        </span>
+        <LineAmount index={index} control={control} currency={currency} />
       </div>
     </div>
   );
-});
+}
 
-/**
- * Desktop table-row variant. Same scoped useWatch pattern — kept identical
- * to mobile so both layouts behave consistently and only the affected row
- * re-renders on input.
- */
-const DesktopLineRow = React.memo(function DesktopLineRow({
+function DesktopLineRow({
   index,
   control,
   register,
   currency,
   onRemove,
 }: LineRowProps) {
-  const qty = useWatch({ control, name: `items.${index}.quantity` as never });
-  const price = useWatch({ control, name: `items.${index}.unit_price` as never });
-  const amount = (Number(qty) || 0) * (Number(price) || 0);
-
   return (
     <TableRow className="align-top">
       <TableCell>
@@ -301,7 +290,7 @@ const DesktopLineRow = React.memo(function DesktopLineRow({
         />
       </TableCell>
       <TableCell className="text-right tabular-nums">
-        {formatMoney(amount, currency)}
+        <LineAmount index={index} control={control} currency={currency} />
       </TableCell>
       <TableCell>
         <Button
@@ -316,6 +305,29 @@ const DesktopLineRow = React.memo(function DesktopLineRow({
       </TableCell>
     </TableRow>
   );
-});
+}
+
+/**
+ * Isolated live-amount display. Owns its useWatch subscription so re-renders
+ * are confined to this one <span>, never bubbling up to the input row.
+ */
+function LineAmount({
+  index,
+  control,
+  currency,
+}: {
+  index: number;
+  control: Control<InvoiceFormShape>;
+  currency: string;
+}) {
+  const qty = useWatch({ control, name: `items.${index}.quantity` as never });
+  const price = useWatch({ control, name: `items.${index}.unit_price` as never });
+  const amount = (Number(qty) || 0) * (Number(price) || 0);
+  return (
+    <span className="font-semibold tabular-nums">
+      {formatMoney(amount, currency)}
+    </span>
+  );
+}
 
 export default LineItems;
