@@ -230,16 +230,22 @@ const styles = StyleSheet.create({
 
 function PaymentBlock({ text }: { text: string }): React.ReactElement {
   // Render the PAYMENT_BLOCK string with section headings styled.
+  // A heading is a short line (<= 40 chars) ending with ":" (optionally "  :"),
+  // with no other colon in its content. Catches both "USD Payment :" and
+  // "Paiement en EUR :" without hard-coding the keyword "Payment".
   const lines = text.split(/\r?\n/);
   const nodes: React.ReactElement[] = [];
   lines.forEach((line, idx) => {
-    if (/^[A-Za-z][\w\/ ]*Payment:?$/.test(line.trim())) {
+    const trimmed = line.trim();
+    const m = /^(.{1,40}?)\s*:\s*$/.exec(trimmed);
+    const isHeading = m !== null && m[1].length > 0 && !m[1].includes(":");
+    if (isHeading) {
       nodes.push(
         <Text key={idx} style={styles.paymentHeading}>
-          {line.trim()}
+          {trimmed}
         </Text>
       );
-    } else if (line.trim() === "") {
+    } else if (trimmed === "") {
       nodes.push(<Text key={idx} style={styles.paymentLine}> </Text>);
     } else {
       nodes.push(

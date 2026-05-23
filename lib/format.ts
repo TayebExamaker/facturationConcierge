@@ -21,12 +21,25 @@ export function formatMoney(amount: number, currency: string): string {
   }
 
   try {
-    return new Intl.NumberFormat("en-GB", {
+    const formatter = new Intl.NumberFormat("en-GB", {
       style: "currency",
       currency: code,
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
-    }).format(safeAmount);
+    });
+    // Insert a non-breaking space between the currency symbol and the amount
+    // (typographic convention — and avoids the cramped "€1234" look in PDFs).
+    const parts = formatter.formatToParts(safeAmount);
+    return parts
+      .map((p, i) => {
+        if (p.type !== "currency") return p.value;
+        const next = parts[i + 1];
+        const prev = parts[i - 1];
+        if (next && next.type !== "literal") return p.value + " ";
+        if (prev && prev.type !== "literal") return " " + p.value;
+        return p.value;
+      })
+      .join("");
   } catch {
     return `${safeAmount.toFixed(decimals)} ${code}`;
   }
