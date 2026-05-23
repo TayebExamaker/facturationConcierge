@@ -13,7 +13,7 @@ import type {
   InvoiceStatus,
 } from "@/lib/supabase/types";
 
-const DEFAULT_START_NUMBER = 1000;
+const DEFAULT_START_NUMBER = 2737;
 
 /**
  * List invoices, optionally filtered.
