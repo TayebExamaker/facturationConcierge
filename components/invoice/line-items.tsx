@@ -4,6 +4,7 @@ import * as React from "react";
 import { Plus, Trash2 } from "lucide-react";
 import {
   useFieldArray,
+  useWatch,
   type Control,
   type UseFormRegister,
   type UseFormWatch,
@@ -61,7 +62,9 @@ export function LineItems({ control, register, watch, className }: LineItemsProp
     control,
     name: "items" as never,
   });
-  const items = watch("items") ?? [];
+  // Subscribe ONLY to currency. Per-row amount is computed inside each row via
+  // a scoped useWatch so a keystroke in row #2 doesn't re-render row #1's
+  // inputs (which on iOS PWA was eating the keystroke).
   const currency = watch("currency") ?? "USD";
 
   const handleAdd = () => {
@@ -72,7 +75,7 @@ export function LineItems({ control, register, watch, className }: LineItemsProp
 
   return (
     <div className={cn("space-y-3", className)}>
-      {/* Mobile layout (<sm) — cards stacked vertically. Easier to tap on phone. */}
+      {/* Mobile layout (<sm) — cards stacked vertically. */}
       <div className="space-y-3 sm:hidden">
         {isEmpty ? (
           <div className="luxury-card p-6 text-center text-sm text-muted-foreground">
@@ -80,78 +83,20 @@ export function LineItems({ control, register, watch, className }: LineItemsProp
             <span className="text-foreground">Add row</span>.
           </div>
         ) : (
-          fields.map((field, index) => {
-            const row = items[index] ?? { quantity: 0, unit_price: 0 };
-            const amount =
-              (Number(row.quantity) || 0) * (Number(row.unit_price) || 0);
-            return (
-              <div key={field.id} className="luxury-card p-4 space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-xs uppercase tracking-widest text-muted-foreground">
-                    Item {index + 1}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => remove(index)}
-                    aria-label={`Remove line ${index + 1}`}
-                    className="-mr-2 -mt-1"
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-                <Textarea
-                  {...register(`items.${index}.description` as const)}
-                  placeholder="Service description"
-                  className="min-h-[44px] resize-y"
-                  rows={2}
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] uppercase tracking-widest text-muted-foreground">
-                      Quantity
-                    </label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      autoComplete="off"
-                      {...register(`items.${index}.quantity` as const, {
-                        setValueAs: toNumberLoose,
-                      })}
-                      className="text-right tabular-nums h-11"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] uppercase tracking-widest text-muted-foreground">
-                      Unit price
-                    </label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      autoComplete="off"
-                      {...register(`items.${index}.unit_price` as const, {
-                        setValueAs: toNumberLoose,
-                      })}
-                      className="text-right tabular-nums h-11"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between pt-2 border-t border-border">
-                  <span className="text-xs uppercase tracking-widest text-muted-foreground">
-                    Amount
-                  </span>
-                  <span className="font-semibold tabular-nums">
-                    {formatMoney(amount, currency)}
-                  </span>
-                </div>
-              </div>
-            );
-          })
+          fields.map((field, index) => (
+            <MobileLineCard
+              key={field.id}
+              index={index}
+              control={control}
+              register={register}
+              currency={currency as string}
+              onRemove={() => remove(index)}
+            />
+          ))
         )}
       </div>
 
-      {/* Desktop / tablet layout (sm+) — table with horizontal scroll if narrow. */}
+      {/* Desktop / tablet layout (sm+) — table. */}
       <div className="hidden sm:block overflow-x-auto luxury-card">
         <Table>
           <TableHeader>
@@ -178,59 +123,16 @@ export function LineItems({ control, register, watch, className }: LineItemsProp
               </TableRow>
             ) : null}
 
-            {fields.map((field, index) => {
-              const row = items[index] ?? { quantity: 0, unit_price: 0 };
-              const amount =
-                (Number(row.quantity) || 0) * (Number(row.unit_price) || 0);
-              return (
-                <TableRow key={field.id} className="align-top">
-                  <TableCell>
-                    <Textarea
-                      {...register(`items.${index}.description` as const)}
-                      placeholder="Service description"
-                      className="min-h-[40px] resize-y"
-                      rows={1}
-                    />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      autoComplete="off"
-                      {...register(`items.${index}.quantity` as const, {
-                        setValueAs: toNumberLoose,
-                      })}
-                      className="text-right tabular-nums"
-                    />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      autoComplete="off"
-                      {...register(`items.${index}.unit_price` as const, {
-                        setValueAs: toNumberLoose,
-                      })}
-                      className="text-right tabular-nums"
-                    />
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatMoney(amount, currency)}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => remove(index)}
-                      aria-label={`Remove line ${index + 1}`}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+            {fields.map((field, index) => (
+              <DesktopLineRow
+                key={field.id}
+                index={index}
+                control={control}
+                register={register}
+                currency={currency as string}
+                onRemove={() => remove(index)}
+              />
+            ))}
           </TableBody>
         </Table>
       </div>
@@ -249,5 +151,171 @@ export function LineItems({ control, register, watch, className }: LineItemsProp
     </div>
   );
 }
+
+interface LineRowProps {
+  index: number;
+  control: Control<InvoiceFormShape>;
+  register: UseFormRegister<InvoiceFormShape>;
+  currency: string;
+  onRemove: () => void;
+}
+
+/**
+ * Mobile-only stacked card row. Scoped `useWatch` means only this row
+ * re-renders when its own qty/price change — sibling rows stay quiet,
+ * preserving input focus and accepted keystrokes on iOS Safari PWA.
+ */
+const MobileLineCard = React.memo(function MobileLineCard({
+  index,
+  control,
+  register,
+  currency,
+  onRemove,
+}: LineRowProps) {
+  const qty = useWatch({ control, name: `items.${index}.quantity` as never });
+  const price = useWatch({ control, name: `items.${index}.unit_price` as never });
+  const amount = (Number(qty) || 0) * (Number(price) || 0);
+
+  return (
+    <div className="luxury-card p-4 space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-xs uppercase tracking-widest text-muted-foreground">
+          Item {index + 1}
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={onRemove}
+          aria-label={`Remove line ${index + 1}`}
+          className="-mr-2 -mt-1"
+        >
+          <Trash2 className="h-4 w-4 text-destructive" />
+        </Button>
+      </div>
+      <Textarea
+        {...register(`items.${index}.description` as const)}
+        placeholder="Service description"
+        className="min-h-[44px] resize-y"
+        rows={2}
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="sentences"
+        spellCheck={false}
+      />
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <label className="text-[11px] uppercase tracking-widest text-muted-foreground">
+            Quantity
+          </label>
+          <Input
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            {...register(`items.${index}.quantity` as const, {
+              setValueAs: toNumberLoose,
+            })}
+            className="text-right tabular-nums h-11"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[11px] uppercase tracking-widest text-muted-foreground">
+            Unit price
+          </label>
+          <Input
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            {...register(`items.${index}.unit_price` as const, {
+              setValueAs: toNumberLoose,
+            })}
+            className="text-right tabular-nums h-11"
+          />
+        </div>
+      </div>
+      <div className="flex items-center justify-between pt-2 border-t border-border">
+        <span className="text-xs uppercase tracking-widest text-muted-foreground">
+          Amount
+        </span>
+        <span className="font-semibold tabular-nums">
+          {formatMoney(amount, currency)}
+        </span>
+      </div>
+    </div>
+  );
+});
+
+/**
+ * Desktop table-row variant. Same scoped useWatch pattern — kept identical
+ * to mobile so both layouts behave consistently and only the affected row
+ * re-renders on input.
+ */
+const DesktopLineRow = React.memo(function DesktopLineRow({
+  index,
+  control,
+  register,
+  currency,
+  onRemove,
+}: LineRowProps) {
+  const qty = useWatch({ control, name: `items.${index}.quantity` as never });
+  const price = useWatch({ control, name: `items.${index}.unit_price` as never });
+  const amount = (Number(qty) || 0) * (Number(price) || 0);
+
+  return (
+    <TableRow className="align-top">
+      <TableCell>
+        <Textarea
+          {...register(`items.${index}.description` as const)}
+          placeholder="Service description"
+          className="min-h-[40px] resize-y"
+          rows={1}
+          autoComplete="off"
+        />
+      </TableCell>
+      <TableCell className="text-right">
+        <Input
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
+          {...register(`items.${index}.quantity` as const, {
+            setValueAs: toNumberLoose,
+          })}
+          className="text-right tabular-nums"
+        />
+      </TableCell>
+      <TableCell className="text-right">
+        <Input
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
+          {...register(`items.${index}.unit_price` as const, {
+            setValueAs: toNumberLoose,
+          })}
+          className="text-right tabular-nums"
+        />
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        {formatMoney(amount, currency)}
+      </TableCell>
+      <TableCell>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={onRemove}
+          aria-label={`Remove line ${index + 1}`}
+        >
+          <Trash2 className="h-4 w-4 text-destructive" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+});
 
 export default LineItems;
