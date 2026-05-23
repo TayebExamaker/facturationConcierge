@@ -27,12 +27,9 @@ import { cn } from "@/lib/utils";
 /**
  * Coerce a number-or-string form value into a finite Number. Tolerant of `,`
  * decimal separator (FR/EU keyboards), whitespace, and empty input. Returns
- * `0` for unparseable values so totals arithmetic stays defined.
- *
- * Used at read time (display + submit), NOT through register's `setValueAs`:
- * we keep the inputs fully uncontrolled and store the raw string in form
- * state, so register can't get confused about which transform to apply on
- * re-render. Conversion happens here, exactly once per consumption.
+ * `0` for unparseable values so totals arithmetic stays defined. Conversion
+ * happens at read time (display / submit), never through register's
+ * `setValueAs` — see the comment on the register calls below.
  */
 export function toNumberLoose(value: unknown): number {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -62,12 +59,33 @@ export interface LineItemsProps {
   className?: string;
 }
 
+/**
+ * Media-query hook for the sm breakpoint (Tailwind's 640px). Used to render
+ * EITHER the mobile cards OR the desktop table — never both. Rendering both
+ * trees simultaneously (with one hidden via `sm:hidden` / `hidden sm:block`)
+ * caused react-hook-form to register every items.${i}.{field} TWICE, which
+ * silently dropped user input on mobile.
+ */
+function useIsDesktop(): boolean {
+  const [isDesktop, setIsDesktop] = React.useState(false);
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 640px)");
+    setIsDesktop(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return isDesktop;
+}
+
 export function LineItems({ control, register, watch, className }: LineItemsProps) {
   const { fields, append, remove } = useFieldArray({
     control,
     name: "items" as never,
   });
   const currency = watch("currency") ?? "USD";
+  const isDesktop = useIsDesktop();
 
   const handleAdd = () => {
     append({ description: "", quantity: 1, unit_price: 0 });
@@ -77,56 +95,56 @@ export function LineItems({ control, register, watch, className }: LineItemsProp
 
   return (
     <div className={cn("space-y-3", className)}>
-      {/* Mobile layout (<sm). */}
-      <div className="space-y-3 sm:hidden">
-        {isEmpty ? (
-          <div className="luxury-card p-6 text-center text-sm text-muted-foreground">
-            No line items yet — tap{" "}
-            <span className="text-foreground">Add row</span>.
-          </div>
-        ) : (
-          fields.map((field, index) => (
-            <MobileLineCard
-              key={field.id}
-              index={index}
-              control={control}
-              register={register}
-              currency={currency as string}
-              onRemove={() => remove(index)}
-            />
-          ))
-        )}
-      </div>
-
-      {/* Desktop / tablet layout (sm+). */}
-      <div className="hidden sm:block overflow-x-auto luxury-card">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[45%] min-w-[200px]">Description</TableHead>
-              <TableHead className="text-right w-[15%] min-w-[90px]">Qty</TableHead>
-              <TableHead className="text-right w-[18%] min-w-[110px]">Unit Price</TableHead>
-              <TableHead className="text-right w-[18%] min-w-[100px]">Amount</TableHead>
-              <TableHead className="w-[4%]">
-                <span className="sr-only">Actions</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isEmpty ? (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="text-center py-6 text-sm text-muted-foreground"
-                >
-                  No line items yet — click{" "}
-                  <span className="text-foreground">Add row</span> to begin.
-                </TableCell>
+      {isDesktop ? (
+        <div className="overflow-x-auto luxury-card">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[45%] min-w-[200px]">Description</TableHead>
+                <TableHead className="text-right w-[15%] min-w-[90px]">Qty</TableHead>
+                <TableHead className="text-right w-[18%] min-w-[110px]">Unit Price</TableHead>
+                <TableHead className="text-right w-[18%] min-w-[100px]">Amount</TableHead>
+                <TableHead className="w-[4%]">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
               </TableRow>
-            ) : null}
+            </TableHeader>
+            <TableBody>
+              {isEmpty ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="text-center py-6 text-sm text-muted-foreground"
+                  >
+                    No line items yet — click{" "}
+                    <span className="text-foreground">Add row</span> to begin.
+                  </TableCell>
+                </TableRow>
+              ) : null}
 
-            {fields.map((field, index) => (
-              <DesktopLineRow
+              {fields.map((field, index) => (
+                <DesktopLineRow
+                  key={field.id}
+                  index={index}
+                  control={control}
+                  register={register}
+                  currency={currency as string}
+                  onRemove={() => remove(index)}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {isEmpty ? (
+            <div className="luxury-card p-6 text-center text-sm text-muted-foreground">
+              No line items yet — tap{" "}
+              <span className="text-foreground">Add row</span>.
+            </div>
+          ) : (
+            fields.map((field, index) => (
+              <MobileLineCard
                 key={field.id}
                 index={index}
                 control={control}
@@ -134,10 +152,10 @@ export function LineItems({ control, register, watch, className }: LineItemsProp
                 currency={currency as string}
                 onRemove={() => remove(index)}
               />
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            ))
+          )}
+        </div>
+      )}
 
       <div className="flex justify-start">
         <Button
@@ -163,16 +181,18 @@ interface LineRowProps {
 }
 
 /**
- * CRITICAL: this card MUST NOT subscribe to its own input values via useWatch.
- * Re-rendering on every keystroke causes register() to be re-invoked, which
- * hands React a brand-new ref callback, which React detaches/reattaches —
- * react-hook-form then re-applies the stored value to the DOM input, wiping
- * the character the user just typed. Visible symptom on desktop and mobile:
- * the field appears to swallow keystrokes.
+ * IMPORTANT: this row component does NOT subscribe to its own input paths via
+ * useWatch — that would re-render on every keystroke, re-invoke register(),
+ * and cause react-hook-form to overwrite the DOM input with the stored value,
+ * dropping the character. The live amount is computed inside a tiny sibling
+ * (<LineAmount>) that owns its own scoped useWatch.
  *
- * Instead, we render the inputs once and isolate the live amount computation
- * inside a tiny sibling component (LineAmount) that owns its own useWatch.
- * Only the amount line re-renders on typing; the inputs themselves never do.
+ * IMPORTANT 2: register options are identical between mobile and desktop
+ * variants below. Even though only one variant mounts at a time (see
+ * `useIsDesktop`), keeping them identical makes accidental dual-mounts safe.
+ * The numeric inputs use plain `register("path")` with NO setValueAs / no
+ * valueAsNumber, so RHF stores the raw string the user typed. Coercion to
+ * Number happens in toNumberLoose at the three read sites.
  */
 function MobileLineCard({
   index,
@@ -273,9 +293,7 @@ function DesktopLineRow({
           type="text"
           inputMode="decimal"
           autoComplete="off"
-          {...register(`items.${index}.quantity` as const, {
-            setValueAs: toNumberLoose,
-          })}
+          {...register(`items.${index}.quantity` as const)}
           className="text-right tabular-nums"
         />
       </TableCell>
@@ -284,9 +302,7 @@ function DesktopLineRow({
           type="text"
           inputMode="decimal"
           autoComplete="off"
-          {...register(`items.${index}.unit_price` as const, {
-            setValueAs: toNumberLoose,
-          })}
+          {...register(`items.${index}.unit_price` as const)}
           className="text-right tabular-nums"
         />
       </TableCell>
