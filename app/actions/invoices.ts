@@ -157,7 +157,8 @@ export async function getNextInvoiceNumber(): Promise<number> {
     .order("invoice_number", { ascending: false })
     .limit(1);
   if (error) throw new Error(`Failed to compute next invoice number: ${error.message}`);
-  const top = data?.[0]?.invoice_number;
+  const rows = data as Array<{ invoice_number: number }> | null;
+  const top = rows?.[0]?.invoice_number;
   if (typeof top !== "number") return DEFAULT_START_NUMBER;
   return top + 1;
 }
