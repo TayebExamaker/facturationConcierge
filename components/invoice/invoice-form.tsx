@@ -318,9 +318,18 @@ export function InvoiceForm({ invoiceId, defaultValues, className }: InvoiceForm
             </div>
             <Input
               id="invoice_number"
-              type="number"
+              type="text"
               inputMode="numeric"
-              {...register("invoice_number" as never, { valueAsNumber: true })}
+              autoComplete="off"
+              {...register("invoice_number" as never, {
+                setValueAs: (v: unknown) => {
+                  if (typeof v === "number") return Number.isFinite(v) ? v : undefined;
+                  const s = String(v ?? "").replace(/[^\d]/g, "");
+                  if (s === "") return undefined as unknown as number;
+                  const n = parseInt(s, 10);
+                  return Number.isFinite(n) ? n : (undefined as unknown as number);
+                },
+              })}
               className="font-mono"
             />
           </div>

@@ -14,6 +14,22 @@ import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { InvoiceFormShape } from "@/components/invoice/line-items";
 
+/**
+ * Parse a free-text decimal input (tolerant of `,` separator and incidental
+ * whitespace) into a Number. Returns `0` on empty / unparseable so totals
+ * arithmetic stays defined. Paired with `<input type="text" inputMode="decimal">`
+ * which on iOS PWA accepts keystrokes that the native `type="number"` silently
+ * rejects.
+ */
+function toLooseDecimal(value: unknown): number {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (value === null || value === undefined) return 0;
+  const cleaned = String(value).trim().replace(",", ".");
+  if (cleaned === "" || cleaned === "-") return 0;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export interface TotalsSummaryProps {
   register: UseFormRegister<InvoiceFormShape>;
   watch: UseFormWatch<InvoiceFormShape>;
@@ -126,10 +142,10 @@ export function TotalsSummary({
           <div className="relative">
             <Input
               id="tax_rate"
-              type="number"
-              step="0.01"
+              type="text"
               inputMode="decimal"
-              {...register("tax_rate" as never, { valueAsNumber: true })}
+              autoComplete="off"
+              {...register("tax_rate" as never, { setValueAs: toLooseDecimal })}
               className="h-10 w-24 pr-8 text-right tabular-nums"
               aria-label="Tax rate"
             />
@@ -155,10 +171,10 @@ export function TotalsSummary({
           <div className="flex items-center gap-2">
             <Input
               id="discount"
-              type="number"
-              step="0.01"
+              type="text"
               inputMode="decimal"
-              {...register("discount" as never, { valueAsNumber: true })}
+              autoComplete="off"
+              {...register("discount" as never, { setValueAs: toLooseDecimal })}
               className="h-10 w-32 text-right tabular-nums"
               aria-label="Discount amount"
             />
@@ -181,10 +197,10 @@ export function TotalsSummary({
           <div className="flex items-center gap-2">
             <Input
               id="shipping"
-              type="number"
-              step="0.01"
+              type="text"
               inputMode="decimal"
-              {...register("shipping" as never, { valueAsNumber: true })}
+              autoComplete="off"
+              {...register("shipping" as never, { setValueAs: toLooseDecimal })}
               className="h-10 w-32 text-right tabular-nums"
               aria-label="Shipping amount"
             />
@@ -247,11 +263,11 @@ export function TotalsSummary({
         <div className="relative">
           <Input
             id="to_be_paid"
-            type="number"
-            step="0.01"
+            type="text"
             inputMode="decimal"
+            autoComplete="off"
             {...register("to_be_paid" as never, {
-              valueAsNumber: true,
+              setValueAs: toLooseDecimal,
               onChange: () => {
                 userOverride.current = true;
               },

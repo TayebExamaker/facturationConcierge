@@ -23,6 +23,20 @@ import {
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+/**
+ * Parse a free-text numeric input into a Number. Tolerant of `,` decimal
+ * separator (FR/EU keyboards) and incidental whitespace. Returns `0` for
+ * empty / unparseable values so the form math stays defined.
+ */
+function toNumberLoose(value: unknown): number {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (value === null || value === undefined) return 0;
+  const cleaned = String(value).trim().replace(",", ".");
+  if (cleaned === "" || cleaned === "-") return 0;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export interface InvoiceLineFormValue {
   description: string;
   quantity: number;
@@ -99,11 +113,11 @@ export function LineItems({ control, register, watch, className }: LineItemsProp
                       Quantity
                     </label>
                     <Input
-                      type="number"
-                      step="any"
+                      type="text"
                       inputMode="decimal"
+                      autoComplete="off"
                       {...register(`items.${index}.quantity` as const, {
-                        valueAsNumber: true,
+                        setValueAs: toNumberLoose,
                       })}
                       className="text-right tabular-nums h-11"
                     />
@@ -113,11 +127,11 @@ export function LineItems({ control, register, watch, className }: LineItemsProp
                       Unit price
                     </label>
                     <Input
-                      type="number"
-                      step="0.01"
+                      type="text"
                       inputMode="decimal"
+                      autoComplete="off"
                       {...register(`items.${index}.unit_price` as const, {
-                        valueAsNumber: true,
+                        setValueAs: toNumberLoose,
                       })}
                       className="text-right tabular-nums h-11"
                     />
@@ -180,22 +194,22 @@ export function LineItems({ control, register, watch, className }: LineItemsProp
                   </TableCell>
                   <TableCell className="text-right">
                     <Input
-                      type="number"
-                      step="any"
+                      type="text"
                       inputMode="decimal"
+                      autoComplete="off"
                       {...register(`items.${index}.quantity` as const, {
-                        valueAsNumber: true,
+                        setValueAs: toNumberLoose,
                       })}
                       className="text-right tabular-nums"
                     />
                   </TableCell>
                   <TableCell className="text-right">
                     <Input
-                      type="number"
-                      step="0.01"
+                      type="text"
                       inputMode="decimal"
+                      autoComplete="off"
                       {...register(`items.${index}.unit_price` as const, {
-                        valueAsNumber: true,
+                        setValueAs: toNumberLoose,
                       })}
                       className="text-right tabular-nums"
                     />
