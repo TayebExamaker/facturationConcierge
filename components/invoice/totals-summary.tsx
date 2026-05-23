@@ -14,23 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { InvoiceFormShape } from "@/components/invoice/line-items";
-
-/**
- * Parse a free-text decimal input (tolerant of `,` separator and incidental
- * whitespace) into a Number. Returns `0` on empty / unparseable so totals
- * arithmetic stays defined. Paired with `<input type="text" inputMode="decimal">`
- * which on iOS PWA accepts keystrokes that the native `type="number"` silently
- * rejects.
- */
-function toLooseDecimal(value: unknown): number {
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  if (value === null || value === undefined) return 0;
-  const cleaned = String(value).trim().replace(",", ".");
-  if (cleaned === "" || cleaned === "-") return 0;
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? n : 0;
-}
+import { toNumberLoose, type InvoiceFormShape } from "@/components/invoice/line-items";
 
 export interface TotalsSummaryProps {
   register: UseFormRegister<InvoiceFormShape>;
@@ -48,20 +32,18 @@ export interface ComputedTotals {
 }
 
 export function computeTotals(values: {
-  items?: Array<{ quantity?: number; unit_price?: number }>;
-  tax_rate?: number;
-  discount?: number;
-  shipping?: number;
+  items?: Array<{ quantity?: number | string; unit_price?: number | string }>;
+  tax_rate?: number | string;
+  discount?: number | string;
+  shipping?: number | string;
 }): ComputedTotals {
   const items = values.items ?? [];
   const subtotal = items.reduce((acc, item) => {
-    const q = Number(item.quantity) || 0;
-    const p = Number(item.unit_price) || 0;
-    return acc + q * p;
+    return acc + toNumberLoose(item.quantity) * toNumberLoose(item.unit_price);
   }, 0);
-  const taxRate = Number(values.tax_rate) || 0;
-  const discount = Number(values.discount) || 0;
-  const shipping = Number(values.shipping) || 0;
+  const taxRate = toNumberLoose(values.tax_rate);
+  const discount = toNumberLoose(values.discount);
+  const shipping = toNumberLoose(values.shipping);
   const taxableBase = Math.max(0, subtotal - discount);
   const taxAmount = taxableBase * (taxRate / 100);
   const total = taxableBase + taxAmount + shipping;
@@ -84,19 +66,23 @@ export function TotalsSummary({
   // the six paths we actually need and let everything else re-render on its
   // own schedule.
   const items = useWatch({ control, name: "items" as never }) as unknown as
-    | Array<{ quantity?: number; unit_price?: number }>
+    | Array<{ quantity?: number | string; unit_price?: number | string }>
     | undefined;
   const taxRateW = useWatch({ control, name: "tax_rate" as never }) as unknown as
     | number
+    | string
     | undefined;
   const discountW = useWatch({ control, name: "discount" as never }) as unknown as
     | number
+    | string
     | undefined;
   const shippingW = useWatch({ control, name: "shipping" as never }) as unknown as
     | number
+    | string
     | undefined;
   const toBePaidW = useWatch({ control, name: "to_be_paid" as never }) as unknown as
     | number
+    | string
     | undefined;
   const currencyW =
     ((useWatch({ control, name: "currency" as never }) as unknown) as string | undefined) ??
@@ -170,7 +156,7 @@ export function TotalsSummary({
               type="text"
               inputMode="decimal"
               autoComplete="off"
-              {...register("tax_rate" as never, { setValueAs: toLooseDecimal })}
+              {...register("tax_rate" as never)}
               className="h-10 w-24 pr-8 text-right tabular-nums"
               aria-label="Tax rate"
             />
@@ -199,7 +185,7 @@ export function TotalsSummary({
               type="text"
               inputMode="decimal"
               autoComplete="off"
-              {...register("discount" as never, { setValueAs: toLooseDecimal })}
+              {...register("discount" as never)}
               className="h-10 w-32 text-right tabular-nums"
               aria-label="Discount amount"
             />
@@ -225,7 +211,7 @@ export function TotalsSummary({
               type="text"
               inputMode="decimal"
               autoComplete="off"
-              {...register("shipping" as never, { setValueAs: toLooseDecimal })}
+              {...register("shipping" as never)}
               className="h-10 w-32 text-right tabular-nums"
               aria-label="Shipping amount"
             />
@@ -292,7 +278,6 @@ export function TotalsSummary({
             inputMode="decimal"
             autoComplete="off"
             {...register("to_be_paid" as never, {
-              setValueAs: toLooseDecimal,
               onChange: () => {
                 userOverride.current = true;
               },

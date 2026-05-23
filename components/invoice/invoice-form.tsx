@@ -24,6 +24,7 @@ import { CurrencySelect } from "@/components/invoice/currency-select";
 import { InvoicePreview } from "@/components/invoice/invoice-preview";
 import {
   LineItems,
+  toNumberLoose,
   type InvoiceFormShape,
 } from "@/components/invoice/line-items";
 import { PrefillFromPdf } from "@/components/invoice/prefill-from-pdf";
@@ -178,12 +179,12 @@ export function InvoiceForm({ invoiceId, defaultValues, className }: InvoiceForm
   const persist = async (payload: InvoiceFormShape): Promise<Invoice> => {
     const totals = computeTotals(payload);
     const p = payload as unknown as Record<string, unknown>;
-    const taxRate = Number(p.tax_rate) || 0;
-    const discount = Number(p.discount) || 0;
-    const shipping = Number(p.shipping) || 0;
-    const toBePaidRaw = Number(p.to_be_paid);
+    const taxRate = toNumberLoose(p.tax_rate);
+    const discount = toNumberLoose(p.discount);
+    const shipping = toNumberLoose(p.shipping);
+    const toBePaidRaw = toNumberLoose(p.to_be_paid);
     const enriched = {
-      invoice_number: Number(p.invoice_number),
+      invoice_number: toNumberLoose(p.invoice_number),
       client_name: String(p.client_name ?? ""),
       client_address: (p.client_address as string) || null,
       date: String(p.date ?? new Date().toISOString().slice(0, 10)),
@@ -191,8 +192,8 @@ export function InvoiceForm({ invoiceId, defaultValues, className }: InvoiceForm
       po_number: (p.po_number as string) || null,
       currency: String(p.currency ?? "USD").toUpperCase(),
       items: (payload.items ?? []).map((it) => {
-        const q = Number(it.quantity) || 0;
-        const u = Number(it.unit_price) || 0;
+        const q = toNumberLoose(it.quantity);
+        const u = toNumberLoose(it.unit_price);
         return {
           description: String(it.description ?? ""),
           quantity: q,
@@ -334,15 +335,7 @@ export function InvoiceForm({ invoiceId, defaultValues, className }: InvoiceForm
               type="text"
               inputMode="numeric"
               autoComplete="off"
-              {...register("invoice_number" as never, {
-                setValueAs: (v: unknown) => {
-                  if (typeof v === "number") return Number.isFinite(v) ? v : undefined;
-                  const s = String(v ?? "").replace(/[^\d]/g, "");
-                  if (s === "") return undefined as unknown as number;
-                  const n = parseInt(s, 10);
-                  return Number.isFinite(n) ? n : (undefined as unknown as number);
-                },
-              })}
+              {...register("invoice_number" as never)}
               className="font-mono"
             />
           </div>

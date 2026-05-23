@@ -25,11 +25,16 @@ import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
- * Parse a free-text numeric input into a Number. Tolerant of `,` decimal
- * separator (FR/EU keyboards) and incidental whitespace. Returns `0` for
- * empty / unparseable values so the form math stays defined.
+ * Coerce a number-or-string form value into a finite Number. Tolerant of `,`
+ * decimal separator (FR/EU keyboards), whitespace, and empty input. Returns
+ * `0` for unparseable values so totals arithmetic stays defined.
+ *
+ * Used at read time (display + submit), NOT through register's `setValueAs`:
+ * we keep the inputs fully uncontrolled and store the raw string in form
+ * state, so register can't get confused about which transform to apply on
+ * re-render. Conversion happens here, exactly once per consumption.
  */
-function toNumberLoose(value: unknown): number {
+export function toNumberLoose(value: unknown): number {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   if (value === null || value === undefined) return 0;
   const cleaned = String(value).trim().replace(",", ".");
@@ -215,9 +220,7 @@ function MobileLineCard({
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck={false}
-            {...register(`items.${index}.quantity` as const, {
-              setValueAs: toNumberLoose,
-            })}
+            {...register(`items.${index}.quantity` as const)}
             className="text-right tabular-nums h-11"
           />
         </div>
@@ -232,9 +235,7 @@ function MobileLineCard({
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck={false}
-            {...register(`items.${index}.unit_price` as const, {
-              setValueAs: toNumberLoose,
-            })}
+            {...register(`items.${index}.unit_price` as const)}
             className="text-right tabular-nums h-11"
           />
         </div>
@@ -322,7 +323,7 @@ function LineAmount({
 }) {
   const qty = useWatch({ control, name: `items.${index}.quantity` as never });
   const price = useWatch({ control, name: `items.${index}.unit_price` as never });
-  const amount = (Number(qty) || 0) * (Number(price) || 0);
+  const amount = toNumberLoose(qty) * toNumberLoose(price);
   return (
     <span className="font-semibold tabular-nums">
       {formatMoney(amount, currency)}
