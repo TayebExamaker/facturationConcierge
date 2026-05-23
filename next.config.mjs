@@ -5,8 +5,11 @@ const withPWA = withPWAInit({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
+  // cacheOnFrontEndNav alone caches navigations conservatively. We deliberately
+  // do NOT enable aggressiveFrontEndNavCaching — it pre-caches every navigated
+  // route's RSC payload, which masks newly created/updated invoices behind a
+  // stale cache after mutations (router.refresh can't bust it).
   cacheOnFrontEndNav: true,
-  aggressiveFrontEndNavCaching: true,
   reloadOnOnline: true,
   workboxOptions: {
     disableDevLogs: true,

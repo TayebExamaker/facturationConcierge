@@ -4,7 +4,7 @@ import { Plus, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/layout/page-shell";
 import { KpiCards } from "@/components/dashboard/kpi-cards";
-import { FilterBarIsland, InvoiceTableIsland } from "./_dashboard-island";
+import { DashboardIsland } from "./_dashboard-island";
 import { listInvoices } from "@/app/actions/invoices";
 
 export const dynamic = "force-dynamic";
@@ -57,8 +57,7 @@ export default async function DashboardPage() {
         ) : null}
 
         <KpiCards invoices={invoices} />
-        <FilterBarIsland />
-        <InvoiceTableIsland invoices={invoices} />
+        <DashboardIsland invoices={invoices} />
       </div>
     </PageShell>
   );

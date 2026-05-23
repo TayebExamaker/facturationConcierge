@@ -275,6 +275,7 @@ export function InvoicePdfDocument({ invoice }: DocProps): React.ReactElement {
           <View style={styles.headerLeft}>
             {/* Brand mark. The src resolves against the browser origin since
                 renderInvoicePdfBlob runs client-side. */}
+            {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer Image, not HTML img */}
             <Image style={styles.logoMark} src="/brand/logo.jpeg" />
             <View>
               <Text style={styles.brandName}>{COMPANY.name}</Text>
@@ -395,7 +396,7 @@ export function InvoicePdfDocument({ invoice }: DocProps): React.ReactElement {
             <View style={styles.grandRow}>
               <Text style={styles.grandLabel}>To be paid</Text>
               <Text style={styles.grandValue}>
-                {formatMoney(invoice.to_be_paid || invoice.total, invoice.currency)}
+                {formatMoney(invoice.to_be_paid ?? invoice.total, invoice.currency)}
               </Text>
             </View>
           </View>

@@ -81,7 +81,6 @@ async function extractText(file: File | Buffer): Promise<string> {
   const data = await toUint8Array(file);
 
   // Lazy import for Node-friendly entrypoint.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pdfjs: any = await import("pdfjs-dist/legacy/build/pdf.mjs");
   // In Node there is no worker; disabling avoids "Cannot find module 'pdf.worker'" errors.
   if (pdfjs.GlobalWorkerOptions) {

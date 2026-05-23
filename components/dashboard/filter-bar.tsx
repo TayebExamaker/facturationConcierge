@@ -77,7 +77,9 @@ export function FilterBar({ value, onChange, className }: FilterBarProps) {
         dateTo: filters.to || undefined,
       });
 
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      // Prepend UTF-8 BOM so Excel on Windows decodes accented characters
+      // (client names, currency symbols) instead of mojibake.
+      const blob = new Blob(["﻿", csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       const stamp = new Date().toISOString().slice(0, 10);

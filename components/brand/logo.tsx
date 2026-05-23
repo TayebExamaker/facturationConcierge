@@ -28,6 +28,7 @@ export function Logo({
       aria-label={COMPANY.name}
       {...props}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element -- Logo is also rendered in @react-pdf/renderer; next/image would break PDF export */}
       <img
         src="/brand/logo.jpeg"
         alt={`${COMPANY.name} mark`}

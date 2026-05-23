@@ -272,7 +272,7 @@ export function TotalsSummary({
         <span className="text-base font-bold text-foreground">To Be Paid</span>
         <span className="text-xl font-bold tabular-nums text-foreground">
           {formatMoney(
-            Number(v.to_be_paid) || totals.total,
+            Number.isFinite(Number(v.to_be_paid)) ? Number(v.to_be_paid) : totals.total,
             currency,
           )}
         </span>

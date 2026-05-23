@@ -48,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.gstatic.com"
           crossOrigin="anonymous"
         />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font -- direct CSS link chosen over next/font/google to avoid hashed class HMR drift */}
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"

@@ -68,7 +68,7 @@ export function pascalCaseName(name: string | null | undefined): string {
   // Strip combining marks (U+0300..U+036F) added by NFD normalization.
   const normalized = name
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
+    .replace(/[\u0300-\u036F]/g, "");
 
   return normalized
     .split(/\s+/)

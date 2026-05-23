@@ -19,9 +19,6 @@ function variantFor(status: string | null | undefined): BadgeProps["variant"] {
       return "destructive";
     case "draft":
       return "outline";
-    case "void":
-    case "cancelled":
-      return "outline";
     default:
       return "outline";
   }
