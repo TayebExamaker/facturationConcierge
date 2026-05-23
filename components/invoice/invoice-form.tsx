@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { Download, Eye, Loader2, Save, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -145,7 +145,20 @@ export function InvoiceForm({ invoiceId, defaultValues, className }: InvoiceForm
     };
   }, [invoiceId, getValues, setValue]);
 
-  const values = watch();
+  // DELIBERATE: scoped useWatch instead of `watch()`. Subscribing to the
+  // whole form here causes InvoiceForm to re-render on every keystroke
+  // (including line item typing), which cascades through LineItems and
+  // forces register() to re-emit fresh refs — react-hook-form then
+  // resets the DOM input value to the stored one and the user's character
+  // is silently discarded. The header (#) and currency selector are the
+  // only two values this component actually reads, so we subscribe to
+  // just those two paths.
+  const invoiceNumberWatched = useWatch({ control, name: "invoice_number" as never }) as unknown as
+    | number
+    | undefined;
+  const currencyWatched = (useWatch({ control, name: "currency" as never }) as unknown as
+    | string
+    | undefined) ?? "USD";
 
   const handleAutofillNumber = async () => {
     try {
@@ -292,8 +305,8 @@ export function InvoiceForm({ invoiceId, defaultValues, className }: InvoiceForm
               {invoiceId ? "Edit Invoice" : "New Invoice"}
             </div>
             <div className="mt-2 text-3xl font-semibold tabular-nums leading-none">
-              {values.invoice_number
-                ? `#${values.invoice_number}`
+              {typeof invoiceNumberWatched === "number" && invoiceNumberWatched > 0
+                ? `#${invoiceNumberWatched}`
                 : <span className="text-muted-foreground">#—</span>}
             </div>
           </div>
@@ -397,7 +410,7 @@ export function InvoiceForm({ invoiceId, defaultValues, className }: InvoiceForm
           <div className="w-56">
             <CurrencySelect
               id="currency"
-              value={values.currency}
+              value={currencyWatched}
               onChange={(code) =>
                 setValue("currency" as never, code as never, {
                   shouldDirty: true,
@@ -412,7 +425,11 @@ export function InvoiceForm({ invoiceId, defaultValues, className }: InvoiceForm
       </Card>
 
       {/* Totals */}
-      <TotalsSummary register={register} watch={watch} setValue={setValue} />
+      <TotalsSummary
+        register={register}
+        control={control}
+        setValue={setValue}
+      />
 
       {/* Notes */}
       <Card className="luxury-card">

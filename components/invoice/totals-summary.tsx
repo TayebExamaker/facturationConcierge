@@ -2,10 +2,12 @@
 
 import * as React from "react";
 import { Plus, RotateCcw, X } from "lucide-react";
-import type {
-  UseFormRegister,
-  UseFormSetValue,
-  UseFormWatch,
+import {
+  useWatch,
+  type Control,
+  type UseFormRegister,
+  type UseFormSetValue,
+  type UseFormWatch,
 } from "react-hook-form";
 
 import { Input } from "@/components/ui/input";
@@ -32,7 +34,9 @@ function toLooseDecimal(value: unknown): number {
 
 export interface TotalsSummaryProps {
   register: UseFormRegister<InvoiceFormShape>;
-  watch: UseFormWatch<InvoiceFormShape>;
+  control: Control<InvoiceFormShape>;
+  /** Retained for API back-compat; not used internally — scoped useWatch is used instead. */
+  watch?: UseFormWatch<InvoiceFormShape>;
   setValue: UseFormSetValue<InvoiceFormShape>;
   className?: string;
 }
@@ -70,44 +74,65 @@ export function computeTotals(values: {
 
 export function TotalsSummary({
   register,
-  watch,
+  control,
   setValue,
   className,
 }: TotalsSummaryProps) {
-  const values = watch();
-  const v = values as unknown as {
-    currency?: string;
-    discount?: number;
-    shipping?: number;
-    to_be_paid?: number;
-    tax_rate?: number;
-  };
-  const currency = v.currency ?? "USD";
-  const totals = computeTotals(values as Parameters<typeof computeTotals>[0]);
+  // Scoped subscriptions — bare `watch()` here would force this whole subtree
+  // (including the tax / discount / shipping inputs) to re-render on every
+  // form-state change, churning input refs and dropping keystrokes. We pull
+  // the six paths we actually need and let everything else re-render on its
+  // own schedule.
+  const items = useWatch({ control, name: "items" as never }) as unknown as
+    | Array<{ quantity?: number; unit_price?: number }>
+    | undefined;
+  const taxRateW = useWatch({ control, name: "tax_rate" as never }) as unknown as
+    | number
+    | undefined;
+  const discountW = useWatch({ control, name: "discount" as never }) as unknown as
+    | number
+    | undefined;
+  const shippingW = useWatch({ control, name: "shipping" as never }) as unknown as
+    | number
+    | undefined;
+  const toBePaidW = useWatch({ control, name: "to_be_paid" as never }) as unknown as
+    | number
+    | undefined;
+  const currencyW =
+    ((useWatch({ control, name: "currency" as never }) as unknown) as string | undefined) ??
+    "USD";
+
+  const currency = currencyW;
+  const totals = computeTotals({
+    items,
+    tax_rate: taxRateW,
+    discount: discountW,
+    shipping: shippingW,
+  });
 
   // Progressive disclosure — discount/shipping rows appear only when added.
   const [showDiscount, setShowDiscount] = React.useState<boolean>(
-    () => Number(v.discount) > 0,
+    () => Number(discountW) > 0,
   );
   const [showShipping, setShowShipping] = React.useState<boolean>(
-    () => Number(v.shipping) > 0,
+    () => Number(shippingW) > 0,
   );
 
   // Keep `to_be_paid` synced with `total` until the user types something.
   const userOverride = React.useRef<boolean>(false);
   const lastTotal = React.useRef<number>(totals.total);
   React.useEffect(() => {
-    const current = Number(v.to_be_paid);
+    const current = Number(toBePaidW);
     const synced =
-      current === undefined ||
-      current === null ||
+      toBePaidW === undefined ||
+      toBePaidW === null ||
       Number.isNaN(current) ||
       current === lastTotal.current;
     if (!userOverride.current && synced) {
       setValue("to_be_paid" as never, totals.total as never, { shouldDirty: false });
     }
     lastTotal.current = totals.total;
-  }, [totals.total, v.to_be_paid, setValue]);
+  }, [totals.total, toBePaidW, setValue]);
 
   const removeDiscount = () => {
     setValue("discount" as never, 0 as never, { shouldDirty: true });
@@ -288,7 +313,7 @@ export function TotalsSummary({
         <span className="text-base font-bold text-foreground">To Be Paid</span>
         <span className="text-xl font-bold tabular-nums text-foreground">
           {formatMoney(
-            Number.isFinite(Number(v.to_be_paid)) ? Number(v.to_be_paid) : totals.total,
+            Number.isFinite(Number(toBePaidW)) ? Number(toBePaidW) : totals.total,
             currency,
           )}
         </span>
