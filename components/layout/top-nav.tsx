@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { logoutAction } from "@/app/login/actions";
 
 const NAV_LINKS: ReadonlyArray<{ href: string; label: string }> = [
   { href: "/dashboard", label: "Dashboard" },
@@ -62,6 +64,18 @@ export function TopNav() {
               {link.label}
             </Link>
           ))}
+          <form action={logoutAction} className="ml-2">
+            <Button
+              type="submit"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground"
+              aria-label="Sign out"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </Button>
+          </form>
         </nav>
 
         {/* Mobile nav */}
@@ -86,6 +100,18 @@ export function TopNav() {
                   </Link>
                 </DropdownMenuItem>
               ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <form action={logoutAction} className="w-full">
+                  <button
+                    type="submit"
+                    className="flex w-full items-center gap-2 text-left"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sign out
+                  </button>
+                </form>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
