@@ -115,6 +115,36 @@ export function InvoiceForm({ invoiceId, defaultValues, className }: InvoiceForm
     }
   }, [getValues, setValue]);
 
+  // AUTO_NUMBER_EFFECT — when creating a new invoice from scratch (not editing
+  // and not pre-filled by an imported PDF), fetch the next available invoice
+  // number on mount so the field is populated without user intervention.
+  React.useEffect(() => {
+    if (invoiceId) return; // edit mode: keep the existing number.
+    const preset = getValues("invoice_number" as never) as unknown as
+      | number
+      | undefined;
+    if (typeof preset === "number" && Number.isFinite(preset) && preset > 0) {
+      return; // already populated (e.g. PDF prefill); don't overwrite.
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const next = await getNextInvoiceNumber();
+        if (cancelled) return;
+        setValue("invoice_number" as never, next as never, {
+          shouldDirty: false,
+          shouldValidate: false,
+        });
+      } catch {
+        // Silent: the user can still click "Auto-fill next" or type a number
+        // manually. We don't want a toast on mount.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [invoiceId, getValues, setValue]);
+
   const values = watch();
 
   const handleAutofillNumber = async () => {
