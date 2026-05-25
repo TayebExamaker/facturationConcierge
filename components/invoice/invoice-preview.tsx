@@ -15,6 +15,7 @@ export interface InvoicePreviewData {
   invoice_number?: number | string | null;
   date?: string | null;
   payment_terms?: string | null;
+  payment_instructions?: string | null;
   po_number?: string | null;
   client_name?: string | null;
   client_address?: string | null;
@@ -233,7 +234,7 @@ export function InvoicePreview({ invoice, className }: InvoicePreviewProps) {
       <section className="px-5 sm:px-8 py-6 border-t border-border/40">
         <h3 className="font-serif text-base mb-3">Payment Information</h3>
         <pre className="text-[11px] leading-relaxed font-mono whitespace-pre-wrap break-words bg-secondary/30 print:bg-transparent rounded-md p-4 text-foreground/90">
-{PAYMENT_BLOCK}
+{invoice.payment_instructions?.trim() || PAYMENT_BLOCK}
         </pre>
       </section>
 

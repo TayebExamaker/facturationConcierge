@@ -417,7 +417,7 @@ export function InvoicePdfDocument({ invoice }: DocProps): React.ReactElement {
           {/* Payment details */}
           <Text style={styles.paymentTitle}>Payment details</Text>
           <View style={styles.paymentRule} />
-          <PaymentBlock text={PAYMENT_BLOCK} />
+          <PaymentBlock text={invoice.payment_instructions?.trim() || PAYMENT_BLOCK} />
         </View>
 
         {/* Footer */}

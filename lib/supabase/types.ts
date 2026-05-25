@@ -19,6 +19,7 @@ export interface Invoice {
   client_address: string | null;
   date: string; // ISO date (YYYY-MM-DD)
   payment_terms: string | null;
+  payment_instructions: string | null;
   po_number: string | null;
   currency: string;
   items: InvoiceItem[];
@@ -47,6 +48,7 @@ export interface InvoiceInput {
   client_address?: string | null;
   date: string;
   payment_terms?: string | null;
+  payment_instructions?: string | null;
   po_number?: string | null;
   currency: string;
   items: InvoiceItem[];

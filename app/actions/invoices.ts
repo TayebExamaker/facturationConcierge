@@ -323,6 +323,7 @@ function prepareRow(input: InvoiceInput): Record<string, unknown> {
     client_address: input.client_address ?? null,
     date: input.date,
     payment_terms: input.payment_terms ?? null,
+    payment_instructions: input.payment_instructions ?? null,
     po_number: input.po_number ?? null,
     currency: (input.currency || "USD").toUpperCase(),
     items: input.items ?? [],

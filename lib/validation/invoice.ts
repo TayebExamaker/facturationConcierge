@@ -29,6 +29,7 @@ export const invoiceFormSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
   payment_terms: z.string().max(100).optional().or(z.literal("")),
+  payment_instructions: z.string().max(10000).optional().or(z.literal("")),
   po_number: z.string().max(100).optional().or(z.literal("")),
   currency: z
     .string()
@@ -73,6 +74,7 @@ export function defaultInvoiceFormValues(
     client_address: "",
     date: todayLocalISO(),
     payment_terms: "",
+    payment_instructions: "",
     po_number: "",
     currency: "USD",
     items: [

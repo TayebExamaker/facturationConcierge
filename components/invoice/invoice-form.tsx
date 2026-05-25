@@ -32,7 +32,7 @@ import {
   TotalsSummary,
   computeTotals,
 } from "@/components/invoice/totals-summary";
-import { COMPANY } from "@/lib/company";
+import { COMPANY, PAYMENT_BLOCK } from "@/lib/company";
 import { cn } from "@/lib/utils";
 import { invoiceFormSchema } from "@/lib/validation/invoice";
 import {
@@ -56,6 +56,7 @@ const EMPTY_DEFAULTS: InvoiceFormShape = {
   invoice_number: undefined as unknown as number,
   date: "",
   payment_terms: "Due on receipt",
+  payment_instructions: PAYMENT_BLOCK,
   po_number: "",
   client_name: "",
   client_address: "",
@@ -82,10 +83,16 @@ export function InvoiceForm({ invoiceId, defaultValues, className }: InvoiceForm
   const [submitting, setSubmitting] = React.useState<null | "draft" | "preview" | "pdf">(null);
   const [autoFilling, setAutoFilling] = React.useState(false);
 
-  const merged = React.useMemo(
-    () => ({ ...EMPTY_DEFAULTS, ...(defaultValues as Partial<InvoiceFormShape>) }),
-    [defaultValues],
-  );
+  const merged = React.useMemo(() => {
+    const base = { ...EMPTY_DEFAULTS, ...(defaultValues as Partial<InvoiceFormShape>) };
+    // Legacy invoices saved before payment_instructions existed have null/empty
+    // — fall back to the company default so the textarea is never blank.
+    const pi = (base as { payment_instructions?: string | null }).payment_instructions;
+    if (!pi || (typeof pi === "string" && pi.trim() === "")) {
+      (base as Record<string, unknown>).payment_instructions = PAYMENT_BLOCK;
+    }
+    return base;
+  }, [defaultValues]);
 
   const form = useForm<InvoiceFormShape>({
     resolver: zodResolver(invoiceFormSchema) as never,
@@ -189,6 +196,7 @@ export function InvoiceForm({ invoiceId, defaultValues, className }: InvoiceForm
       client_address: (p.client_address as string) || null,
       date: String(p.date ?? new Date().toISOString().slice(0, 10)),
       payment_terms: (p.payment_terms as string) || null,
+      payment_instructions: (p.payment_instructions as string) || null,
       po_number: (p.po_number as string) || null,
       currency: String(p.currency ?? "USD").toUpperCase(),
       items: (payload.items ?? []).map((it) => {
@@ -435,6 +443,37 @@ export function InvoiceForm({ invoiceId, defaultValues, className }: InvoiceForm
             rows={4}
             {...register("notes" as never)}
           />
+        </CardContent>
+      </Card>
+
+      {/* Payment instructions — defaults to the company PAYMENT_BLOCK, editable per invoice. */}
+      <Card className="luxury-card">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-lg">Payment Instructions</CardTitle>
+          <button
+            type="button"
+            onClick={() =>
+              setValue("payment_instructions" as never, PAYMENT_BLOCK as never, {
+                shouldDirty: true,
+              })
+            }
+            className="text-[11px] uppercase tracking-widest text-gold hover:text-gold-400 flex items-center gap-1"
+          >
+            <Sparkles className="h-3 w-3" />
+            Reset to default
+          </button>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Textarea
+            placeholder="Card paiement, bank details, crypto…"
+            rows={18}
+            className="font-mono text-xs leading-relaxed"
+            {...register("payment_instructions" as never)}
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Shown in the “Payment Information” section of the preview and PDF.
+            Lines that end with “:” render as section headings in the PDF.
+          </p>
         </CardContent>
       </Card>
 
