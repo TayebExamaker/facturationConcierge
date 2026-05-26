@@ -6,6 +6,7 @@ import { uploadInvoicePdf } from "@/lib/supabase/storage";
 import { parseInvoicePdf } from "@/lib/pdf/parse";
 import { invoicesToCsv } from "@/lib/csv/export";
 import { formatInvoiceLabel } from "@/lib/format";
+import { COMPANY_KEY } from "@/lib/company";
 import type {
   Invoice,
   InvoiceFilters,
@@ -20,7 +21,11 @@ const DEFAULT_START_NUMBER = 2737;
  */
 export async function listInvoices(filters?: InvoiceFilters): Promise<Invoice[]> {
   const supabase = createClient();
-  let q = supabase.from("invoices").select("*").order("date", { ascending: false });
+  let q = supabase
+    .from("invoices")
+    .select("*")
+    .eq("company", COMPANY_KEY)
+    .order("date", { ascending: false });
 
   if (filters?.status) q = q.eq("status", filters.status);
   if (filters?.currency) q = q.eq("currency", filters.currency.toUpperCase());
@@ -42,6 +47,7 @@ export async function getInvoice(id: string): Promise<Invoice | null> {
     .from("invoices")
     .select("*")
     .eq("id", id)
+    .eq("company", COMPANY_KEY)
     .maybeSingle();
   if (error) throw new Error(`Failed to load invoice: ${error.message}`);
   return (data as Invoice | null) ?? null;
@@ -99,6 +105,7 @@ export async function updateInvoice(
     .from("invoices")
     .update(patch as never)
     .eq("id", id)
+    .eq("company", COMPANY_KEY)
     .select("*")
     .single();
 
@@ -121,7 +128,11 @@ export async function updateInvoice(
  */
 export async function deleteInvoice(id: string): Promise<void> {
   const supabase = createClient();
-  const { error } = await supabase.from("invoices").delete().eq("id", id);
+  const { error } = await supabase
+    .from("invoices")
+    .delete()
+    .eq("id", id)
+    .eq("company", COMPANY_KEY);
   if (error) throw new Error(`Failed to delete invoice: ${error.message}`);
   revalidatePath("/invoices");
 }
@@ -138,6 +149,7 @@ export async function setInvoiceStatus(
     .from("invoices")
     .update({ status } as never)
     .eq("id", id)
+    .eq("company", COMPANY_KEY)
     .select("*")
     .single();
   if (error) throw new Error(`Failed to set status: ${error.message}`);
@@ -338,6 +350,7 @@ function prepareRow(input: InvoiceInput): Record<string, unknown> {
     status: input.status ?? "draft",
     source: input.source ?? "created",
     pdf_url: input.pdf_url ?? null,
+    company: COMPANY_KEY,
   };
 }
 

@@ -34,6 +34,7 @@ export interface Invoice {
   status: InvoiceStatus;
   source: InvoiceSource;
   pdf_url: string | null;
+  company: string;
   created_at: string;
   updated_at: string;
 }
@@ -82,9 +83,11 @@ export interface Database {
     Tables: {
       invoices: {
         Row: Invoice;
-        Insert: Omit<Invoice, "id" | "created_at" | "updated_at" | "label"> & {
+        Insert: Omit<Invoice, "id" | "created_at" | "updated_at" | "label" | "company" | "payment_instructions"> & {
           id?: string;
           label?: string;
+          company?: string;
+          payment_instructions?: string | null;
           created_at?: string;
           updated_at?: string;
         };

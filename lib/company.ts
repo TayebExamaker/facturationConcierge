@@ -1,3 +1,9 @@
+// Tags every invoice this app creates so the shared Supabase project can host
+// both Concierge One and Full Access Travel invoices in the same `invoices`
+// table while each frontend only sees its own. Numbering stays globally
+// sequential across both.
+export const COMPANY_KEY = "concierge-one" as const;
+
 export const COMPANY = {
   name: "CONCIERGE ONE GROUP LTD",
   addressLines: [
