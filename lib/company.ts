@@ -14,14 +14,7 @@ export const COMPANY = {
   short: "COG",
 } as const;
 
-export const PAYMENT_BLOCK = `Card paiement :
-
-https://business.mamopay.com/pay/divinerental-67fb29
-Enter amount in AED (1 USD = 3.673 AED) and proceed to your paiement, please add your first name and last name and booking reference if possible.
-(There is 3% card fee additional on the amount)
-
-
-USD Payment :
+export const PAYMENT_BLOCK = `USD Payment :
 
 Global Account Name: One Concierge LLC
 Bank Account Number: 439513543316178
@@ -59,21 +52,6 @@ IBAN: AE630446498900000104171
 SWIFT Code: SCBLAEAD
 Bank Name: Standard Chartered Bank – Dubai Branch
 Location: Standard Chartered Tower, Downtown Dubai, Dubai, UAE
-
-
-Crypto Payment :
-
-TRC20 USDT :
-TQAYqds8YmTUdPPttDsjmFBoVis65wtHmh
-
-ERC20 USDT/USDC :
-0x4644485Eb8BF0EAB76D1F8FD695DC87f3168094c
-
-BTC (btc chain) :
-bc1qp660au6v4p9svsm04d6aercuck966allp6tley
-
-SOL (Sol chain USDC) :
-CpWdoqZZqCLyKjFguDUqpcLX8jVTEMe8Kx1ozAf787xr
 
 
 Best regards`;
