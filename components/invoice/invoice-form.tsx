@@ -215,7 +215,7 @@ export function InvoiceForm({ invoiceId, defaultValues, className }: InvoiceForm
       discount,
       shipping,
       total: totals.total,
-      to_be_paid: Number.isFinite(toBePaidRaw) && toBePaidRaw > 0 ? toBePaidRaw : totals.total,
+      to_be_paid: Number.isFinite(toBePaidRaw) && toBePaidRaw >= 0 ? toBePaidRaw : totals.total,
       notes: (p.notes as string) || null,
     };
     if (invoiceId) {
