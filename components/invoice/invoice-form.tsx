@@ -40,6 +40,11 @@ import {
   updateInvoice,
   getNextInvoiceNumber,
 } from "@/app/actions/invoices";
+import {
+  listClientDirectory,
+  type ClientDirectoryEntry,
+} from "@/app/actions/clients";
+import { clientKey } from "@/lib/clients";
 import type { Invoice } from "@/lib/supabase/types";
 
 export interface InvoiceFormProps {
@@ -152,6 +157,54 @@ export function InvoiceForm({ invoiceId, defaultValues, className }: InvoiceForm
       cancelled = true;
     };
   }, [invoiceId, getValues, setValue]);
+
+  // CLIENT_MEMORY — known clients derived from past invoices. Powers the name
+  // autocomplete (<datalist>) and one-shot address/currency prefill when the
+  // user picks a client we already know. Fetched once on mount.
+  const [knownClients, setKnownClients] = React.useState<ClientDirectoryEntry[]>([]);
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const dir = await listClientDirectory();
+        if (!cancelled) setKnownClients(dir);
+      } catch {
+        // Non-fatal — the form still works without autocomplete.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // When the typed/selected client name exactly matches a known client, fill in
+  // their address (and last currency) — but only when creating a new invoice
+  // and only into an EMPTY address field, so we never clobber edits.
+  const handleClientNameChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (invoiceId) return;
+      const typed = e.target.value;
+      const match = knownClients.find(
+        (c) => clientKey(c.name) === clientKey(typed),
+      );
+      if (!match) return;
+      const currentAddr = String(
+        (getValues("client_address" as never) as unknown as string) ?? "",
+      ).trim();
+      if (currentAddr.length > 0) return; // don't overwrite existing input
+      if (!match.address) return;
+      setValue("client_address" as never, match.address as never, {
+        shouldDirty: true,
+      });
+      if (match.currency) {
+        setValue("currency" as never, match.currency as never, {
+          shouldDirty: true,
+        });
+      }
+      toast.message(`Infos de ${match.name} pré-remplies depuis l'historique`);
+    },
+    [invoiceId, knownClients, getValues, setValue],
+  );
 
   // DELIBERATE: scoped useWatch instead of `watch()`. Subscribing to the
   // whole form here causes InvoiceForm to re-render on every keystroke
@@ -388,8 +441,24 @@ export function InvoiceForm({ invoiceId, defaultValues, className }: InvoiceForm
             <Input
               id="client_name"
               placeholder="Client name"
-              {...register("client_name" as never)}
+              list="known-clients"
+              autoComplete="off"
+              {...register("client_name" as never, {
+                onChange: handleClientNameChange,
+              })}
             />
+            {/* Known clients — autocomplete + memory source. */}
+            <datalist id="known-clients">
+              {knownClients.map((c) => (
+                <option key={c.name} value={c.name} />
+              ))}
+            </datalist>
+            {!invoiceId && knownClients.length > 0 ? (
+              <p className="text-[11px] text-muted-foreground">
+                Astuce : choisissez un client connu pour remplir son adresse
+                automatiquement.
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-1.5">

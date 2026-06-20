@@ -19,6 +19,7 @@ import { logoutAction } from "@/app/login/actions";
 
 const NAV_LINKS: ReadonlyArray<{ href: string; label: string }> = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/clients", label: "Clients" },
   { href: "/invoices/new", label: "New Invoice" },
   { href: "/invoices/import", label: "Import" },
 ];

@@ -8,21 +8,63 @@ import { z } from "zod";
  * vs strict ISO 3-letter spec.
  */
 
+/**
+ * Comma-tolerant decimal coercion.
+ *
+ * The numeric form inputs are `type="text"` and store the RAW string the user
+ * typed (see line-items.tsx — no `valueAsNumber`/`setValueAs`). FR/EU keyboards
+ * on both desktop and mobile emit "," as the decimal separator, so a value like
+ * "1,5" reaches the resolver as the string "1,5". Plain `z.coerce.number()` does
+ * `Number("1,5")` -> NaN, which fails `.min(0)` and SILENTLY blocks submission —
+ * the user types a comma and the "Save" button does nothing.
+ *
+ * We normalise here (mirrors `parseMoneyInput` / `toNumberLoose`): strip
+ * currency symbols & spaces, resolve which of "." / "," is the decimal
+ * separator, and hand a real number to the inner schema. Empty -> 0.
+ */
+function normalizeDecimal(v: unknown): unknown {
+  if (typeof v === "number") return v;
+  if (v === null || v === undefined) return 0;
+  const s = String(v).trim();
+  if (s === "") return 0;
+
+  let cleaned = s.replace(/[^\d.,\-]/g, "");
+  if (cleaned === "" || cleaned === "-" || cleaned === "." || cleaned === ",")
+    return 0;
+
+  const lastDot = cleaned.lastIndexOf(".");
+  const lastComma = cleaned.lastIndexOf(",");
+  if (lastDot !== -1 && lastComma !== -1) {
+    // Both separators present — the rightmost is the decimal point, the other
+    // is a thousands grouping ("1.234,56" or "1,234.56").
+    if (lastComma > lastDot) cleaned = cleaned.replace(/\./g, "").replace(",", ".");
+    else cleaned = cleaned.replace(/,/g, "");
+  } else if (lastComma !== -1) {
+    cleaned = cleaned.replace(",", ".");
+  }
+
+  const n = Number(cleaned);
+  // Hand the original back on failure so the inner schema raises its message.
+  return Number.isFinite(n) ? n : v;
+}
+
+/** Wrap a numeric schema so it accepts comma decimals and stray symbols. */
+const decimal = (schema: z.ZodNumber) => z.preprocess(normalizeDecimal, schema);
+
 export const lineItemSchema = z.object({
   description: z.string().min(1, "Description is required"),
-  quantity: z.coerce.number().min(0),
-  unit_price: z.coerce.number().min(0),
+  quantity: decimal(z.number().min(0)),
+  unit_price: decimal(z.number().min(0)),
   // `amount` is derived (qty * unit_price); not user-editable, computed in persist().
-  amount: z.coerce.number().min(0).optional().default(0),
+  amount: decimal(z.number().min(0)),
 });
 
 export type LineItem = z.infer<typeof lineItemSchema>;
 
 export const invoiceFormSchema = z.object({
-  invoice_number: z.coerce
-    .number()
-    .int()
-    .positive("Invoice # must be a positive integer"),
+  invoice_number: decimal(
+    z.number().int().positive("Invoice # must be a positive integer"),
+  ),
   client_name: z.string().min(1, "Client name is required").max(200),
   client_address: z.string().max(500).optional().or(z.literal("")),
   date: z
@@ -38,15 +80,15 @@ export const invoiceFormSchema = z.object({
     .default("USD"),
   items: z.array(lineItemSchema).min(1, "Add at least one line item"),
   // Derived totals — computed in InvoiceForm.persist() before hitting BACK.
-  // Kept optional so the user-facing form doesn't fail validation on fields
-  // they never see.
-  subtotal: z.coerce.number().min(0).optional().default(0),
-  tax_rate: z.coerce.number().min(0),
-  tax_amount: z.coerce.number().min(0).optional().default(0),
-  discount: z.coerce.number().min(0),
-  shipping: z.coerce.number().min(0),
-  total: z.coerce.number().min(0).optional().default(0),
-  to_be_paid: z.coerce.number().min(0).optional().default(0),
+  // Kept lenient so the user-facing form doesn't fail validation on fields
+  // they never see; comma decimals are normalised before coercion.
+  subtotal: decimal(z.number().min(0)),
+  tax_rate: decimal(z.number().min(0)),
+  tax_amount: decimal(z.number().min(0)),
+  discount: decimal(z.number().min(0)),
+  shipping: decimal(z.number().min(0)),
+  total: decimal(z.number().min(0)),
+  to_be_paid: decimal(z.number().min(0)),
   notes: z.string().max(2000).optional().or(z.literal("")),
   status: z.enum(["draft", "sent", "paid", "overdue"]).default("draft"),
 });
