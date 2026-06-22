@@ -32,7 +32,6 @@ Lieu: Allemagne
 Adresse de la banque: MAXIMILIANSTR 54
 Ville: Muenchen
 Code postal: D-80538
-Date de création: 2026-03-03
 
 
 Pound payment :
