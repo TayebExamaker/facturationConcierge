@@ -1,33 +1,16 @@
 // Server-side PDF text extraction + heuristic field parsing.
-// Uses pdfjs-dist legacy build for Node compatibility.
-
-import { pathToFileURL } from "node:url";
+//
+// Text extraction goes through `unpdf` — a serverless-first wrapper that ships a
+// self-contained build of pdf.js with NO web-worker dependency. That single fact
+// kills the entire class of Vercel deployment bugs we kept hitting with the raw
+// `pdfjs-dist` legacy build: "Cannot find module .../pdf.worker.mjs", "Setting
+// up fake worker failed: No GlobalWorkerOptions.workerSrc specified", and the
+// minified "e is not a function". pdf.js needs a worker file resolvable at
+// runtime; unpdf's build runs everything on the main thread, so there is no
+// worker file to trace, bundle, or point `GlobalWorkerOptions.workerSrc` at.
 
 import { isKnownCurrency } from "@/lib/currencies";
 import { parseMoneyInput } from "@/lib/format";
-
-// Resolve pdfjs's legacy worker file as a file:// URL (mandatory on Windows,
-// harmless on Linux/Vercel), memoized on first use.
-//
-// The require MUST be a *real* Node require, obtained at runtime via
-// process.getBuiltinModule. A `createRequire` imported statically from
-// "node:module" gets its `.resolve` rewritten by Next's webpack plugin into the
-// bundler's own resolver — which only knows bundled modules and throws
-// "Cannot find module 'pdfjs-dist/legacy/build/pdf.worker.mjs'" at runtime even
-// though the file physically ships in node_modules (pdfjs-dist is externalized
-// via next.config.mjs serverComponentsExternalPackages). Fetching the builtin
-// at runtime keeps webpack from ever seeing the createRequire binding.
-let workerSrcCache: string | null = null;
-function resolvePdfWorkerSrc(): string {
-  if (workerSrcCache) return workerSrcCache;
-  const nodeModule = process.getBuiltinModule(
-    "node:module",
-  ) as typeof import("node:module");
-  const nodeRequire = nodeModule.createRequire(import.meta.url);
-  const spec = ["pdfjs-dist", "legacy", "build", "pdf.worker.mjs"].join("/");
-  workerSrcCache = pathToFileURL(nodeRequire.resolve(spec)).href;
-  return workerSrcCache;
-}
 
 export interface ParsedItem {
   description: string;
@@ -121,22 +104,10 @@ export async function parseInvoicePdf(file: File | Buffer): Promise<ParsedPdf> {
 async function extractText(file: File | Buffer): Promise<string> {
   const data = await toUint8Array(file);
 
-  // Lazy import for Node-friendly entrypoint.
-  const pdfjs: any = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  // pdfjs v4 dropped the `disableWorker` getDocument option and *requires* a
-  // valid GlobalWorkerOptions.workerSrc, even in Node where it runs the worker
-  // on the main thread ("fake worker"). Setting it to "" — or leaving it unset —
-  // throws: Setting up fake worker failed: No "GlobalWorkerOptions.workerSrc"
-  // specified. Point it at the legacy worker file resolved above.
-  if (pdfjs.GlobalWorkerOptions) {
-    pdfjs.GlobalWorkerOptions.workerSrc = resolvePdfWorkerSrc();
-  }
-
-  const doc = await pdfjs.getDocument({
-    data,
-    isEvalSupported: false,
-    useSystemFonts: true,
-  }).promise;
+  // Lazy import keeps unpdf (and its embedded pdf.js) out of any module graph
+  // that gets evaluated at build/SSR time.
+  const { getDocumentProxy } = await import("unpdf");
+  const doc = await getDocumentProxy(data);
 
   const pageTexts: string[] = [];
   for (let i = 1; i <= doc.numPages; i++) {
@@ -146,7 +117,13 @@ async function extractText(file: File | Buffer): Promise<string> {
     let lastY: number | null = null;
     let line = "";
     const lines: string[] = [];
-    for (const item of content.items as Array<{ str: string; transform: number[] }>) {
+    for (const item of content.items as Array<{
+      str?: string;
+      transform?: number[];
+    }>) {
+      // pdf.js interleaves text items with marked-content markers that carry no
+      // `str`; skip those so they don't corrupt the reconstructed lines.
+      if (typeof item.str !== "string") continue;
       const y = item.transform?.[5] ?? 0;
       if (lastY !== null && Math.abs(y - lastY) > 2) {
         lines.push(line.trim());

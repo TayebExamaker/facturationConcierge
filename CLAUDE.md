@@ -11,7 +11,7 @@ Stack 100 % installable (Windows / Mac / iOS via Safari).
 - **Poppins** via `next/font/google` (font-sans + font-serif)
 - **@ducanh2912/next-pwa** (Workbox) — service worker auto-généré
 - **@react-pdf/renderer** pour la génération PDF côté client (lazy-loaded au clic, pas en SSR)
-- **pdfjs-dist** pour le parsing PDF côté serveur (server actions)
+- **unpdf** (build pdf.js serverless, sans web worker) pour le parsing PDF côté serveur (server actions) — remplace `pdfjs-dist`, qui cassait sur Vercel à cause de la résolution du worker
 - **papaparse** pour l'export CSV
 - **react-hook-form** + **zod** pour les formulaires
 
