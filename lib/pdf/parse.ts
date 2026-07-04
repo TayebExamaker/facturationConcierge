@@ -2,6 +2,14 @@
 // Uses pdfjs-dist legacy build for Node compatibility.
 
 import { isKnownCurrency } from "@/lib/currencies";
+import { parseMoneyInput } from "@/lib/format";
+
+export interface ParsedItem {
+  description: string;
+  quantity: number;
+  unit_price: number;
+  amount: number;
+}
 
 export interface ParsedPdf {
   invoiceNumber?: number;
@@ -10,6 +18,7 @@ export interface ParsedPdf {
   date?: string; // ISO YYYY-MM-DD when possible
   total?: number;
   currency?: string;
+  items?: ParsedItem[];
   rawText: string;
   warnings: string[];
 }
@@ -64,6 +73,7 @@ export async function parseInvoicePdf(file: File | Buffer): Promise<ParsedPdf> {
   const date = extractDate(rawText, warnings);
   const currency = extractCurrency(rawText, warnings);
   const total = extractTotal(rawText, warnings);
+  const items = extractLineItems(rawText, warnings);
 
   return {
     invoiceNumber,
@@ -72,6 +82,7 @@ export async function parseInvoicePdf(file: File | Buffer): Promise<ParsedPdf> {
     date,
     total,
     currency,
+    items,
     rawText,
     warnings,
   };
@@ -270,6 +281,90 @@ function extractCurrency(text: string, warnings: string[]): string | undefined {
 
   warnings.push("Could not detect currency");
   return undefined;
+}
+
+// ---------- line-item table parsing ----------
+//
+// Handles the Concierge One invoice layout (the same shape the app emits, plus
+// the invoice-generator.com family it descends from):
+//
+//   Object                Quantity  Price          Amount
+//   Adja Damba & Silvia   1         3 000,00 $US   3 000,00 $US
+//   Geneva Miami                    <- detail lines belong to the row above
+//   29/01/2026
+//   Julian Zimmer         1         0,00 $US       0,00 $US
+//   ...
+//   117 619,00 $US                  <- standalone totals: end of the table
+//   Sub-Total:
+//
+// A row's "main" line ends with two money+currency tokens (unit price + amount);
+// every non-matching line beneath it is a continuation of that row's description
+// (route / airline / date). French money formatting ("3 000,00") is expected —
+// `\s` matches the U+00A0 / U+202F thousands separators PDF exporters emit.
+
+// Money like "3 000,00" / "117 619,00" / "0,00" — decimals are REQUIRED so a
+// bare quantity integer can never be mistaken for a money value. The thousands
+// separator is `\s+` (not `\s`): PDF text extraction renders the narrow/no-break
+// space as *two* ordinary spaces ("3  000,00"), so a single `\s` would only ever
+// match amounts under 1000.
+const ITEM_MONEY = "\\d{1,3}(?:\\s+\\d{3})*,\\d{2}";
+// Currency token trailing an amount. Covers this tool's "$US" plus the common
+// symbols/codes sibling exports use.
+const ITEM_CURRENCY =
+  "(?:\\$US|US\\$|CA\\$|\\$|€|£|¥|₹|₩|₽|CHF|AED|USD|EUR|GBP|AUD|CAD)";
+
+const ITEM_ROW_RE = new RegExp(
+  `^(.+?)\\s+(\\d+)\\s+(${ITEM_MONEY})\\s*${ITEM_CURRENCY}\\s+(${ITEM_MONEY})\\s*${ITEM_CURRENCY}\\s*$`,
+);
+const STANDALONE_TOTAL_RE = new RegExp(`^\\s*${ITEM_MONEY}\\s*${ITEM_CURRENCY}\\s*$`);
+const TABLE_HEADER_RE =
+  /object\s+quantity\s+price\s+amount|description\s+(?:qty|quantity)\s+(?:unit\s*price|price)\s+amount/i;
+const TOTALS_LABEL_RE = /^(?:sub-?\s?total|tax\b|total\b|payment\b)/i;
+
+/**
+ * Extract the invoice's line items from the items table. Returns [] when the
+ * table header can't be located (unknown layout) so callers keep their existing
+ * single-line fallback rather than emitting garbage rows.
+ */
+function extractLineItems(text: string, warnings: string[]): ParsedItem[] {
+  const lines = text.split(/\r?\n/);
+
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (TABLE_HEADER_RE.test(lines[i])) {
+      start = i + 1;
+      break;
+    }
+  }
+  if (start === -1) return [];
+
+  const items: ParsedItem[] = [];
+  for (let i = start; i < lines.length; i++) {
+    const ln = lines[i].trim();
+    if (!ln) continue;
+    // End of the table: the totals block (standalone amounts, then labels).
+    if (STANDALONE_TOTAL_RE.test(ln) || TOTALS_LABEL_RE.test(ln)) break;
+
+    const m = ITEM_ROW_RE.exec(ln);
+    if (m) {
+      items.push({
+        description: m[1].trim(),
+        quantity: parseInt(m[2], 10) || 1,
+        unit_price: parseMoneyInput(m[3]),
+        amount: parseMoneyInput(m[4]),
+      });
+    } else if (items.length) {
+      // Detail line (route / airline / date) — fold into the current row.
+      const prev = items[items.length - 1];
+      prev.description = `${prev.description}\n${ln}`;
+    }
+    // Lines before the first matched row are table noise — ignore.
+  }
+
+  if (!items.length) {
+    warnings.push("Line-item table detected but no rows could be parsed.");
+  }
+  return items;
 }
 
 function extractTotal(text: string, warnings: string[]): number | undefined {

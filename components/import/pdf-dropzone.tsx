@@ -25,13 +25,16 @@ import {
   parseInvoicePdfOnly,
   getNextInvoiceNumber,
 } from "@/app/actions/invoices";
+import type { InvoiceItem } from "@/lib/supabase/types";
 
 interface ParsedInvoice {
   invoice_number?: number | string | null;
   date?: string | null;
   client_name?: string | null;
+  client_address?: string | null;
   currency?: string | null;
   total?: number | null;
+  items?: InvoiceItem[] | null;
   notes?: string | null;
   warnings?: string[];
   [key: string]: unknown;
@@ -70,12 +73,20 @@ export function PdfDropzone({ className }: PdfDropzoneProps) {
           // Non-fatal — user can fill it in.
         }
       }
+      // When the line-item table was read, prefer the items' subtotal as the
+      // total — it's the ground truth for what will land on the invoice.
+      const itemsSubtotal = (preview.items ?? []).reduce(
+        (sum, it) => sum + (it.amount || 0),
+        0,
+      );
       setParsed({
         invoice_number: suggestedNumber ?? null,
         date: preview.date ?? null,
         client_name: preview.client_name ?? null,
+        client_address: preview.client_address ?? null,
         currency: (preview.currency ?? "USD").toUpperCase(),
-        total: preview.total ?? null,
+        total: preview.items?.length ? itemsSubtotal : preview.total ?? null,
+        items: preview.items ?? null,
         notes: null,
         warnings: preview.warnings,
       });
@@ -119,24 +130,28 @@ export function PdfDropzone({ className }: PdfDropzoneProps) {
         setConfirming(false);
         return;
       }
-      const total = Number(parsed.total ?? 0) || 0;
+      // Use the parsed line items when present; otherwise drop the total into a
+      // single editable line so nothing is lost.
+      const parsedItems = parsed.items ?? [];
+      const items: InvoiceItem[] = parsedItems.length
+        ? parsedItems
+        : (() => {
+            const t = Number(parsed.total ?? 0) || 0;
+            return t
+              ? [{ description: "Imported invoice", quantity: 1, unit_price: t, amount: t }]
+              : [];
+          })();
+      const subtotal = items.reduce((sum, it) => sum + (it.amount || 0), 0);
+      const total = parsedItems.length ? subtotal : Number(parsed.total ?? 0) || 0;
       const today = new Date().toISOString().slice(0, 10);
       const created = await createInvoice({
         invoice_number: num,
         client_name: (parsed.client_name ?? "Unknown Client") || "Unknown Client",
+        client_address: (parsed.client_address as string | null) || null,
         date: (parsed.date as string | null) || today,
         currency: ((parsed.currency as string | null) || "USD").toUpperCase(),
-        items: total
-          ? [
-              {
-                description: "Imported invoice",
-                quantity: 1,
-                unit_price: total,
-                amount: total,
-              },
-            ]
-          : [],
-        subtotal: total,
+        items,
+        subtotal,
         tax_rate: 0,
         tax_amount: 0,
         discount: 0,
@@ -221,6 +236,18 @@ export function PdfDropzone({ className }: PdfDropzoneProps) {
               then confirm to save.
             </DialogDescription>
           </DialogHeader>
+
+          {parsed?.items?.length ? (
+            <div className="rounded-md border border-gold/30 bg-gold/5 px-3 py-2 text-sm">
+              <span className="font-medium text-foreground">
+                {parsed.items.length} line item
+                {parsed.items.length === 1 ? "" : "s"} detected
+              </span>{" "}
+              <span className="text-muted-foreground">
+                — you can edit them after saving.
+              </span>
+            </div>
+          ) : null}
 
           {parsed ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -11,6 +11,7 @@ import type {
   Invoice,
   InvoiceFilters,
   InvoiceInput,
+  InvoiceItem,
   InvoiceStatus,
 } from "@/lib/supabase/types";
 
@@ -232,7 +233,36 @@ export async function importInvoiceFromPdf(
     warnings.push(`Date not detected; defaulted to today (${date}).`);
   }
   const currency = (parsed.currency || "USD").toUpperCase();
-  const total = parsed.total ?? 0;
+
+  // Prefer the parsed line items. When the table couldn't be read, fall back to
+  // a single line carrying the grand total so nothing is silently lost.
+  const parsedItems = parsed.items ?? [];
+  const itemsSubtotal = parsedItems.reduce((sum, it) => sum + (it.amount || 0), 0);
+  const total = parsedItems.length ? itemsSubtotal : parsed.total ?? 0;
+
+  if (parsedItems.length) {
+    warnings.push(
+      `Parsed ${parsedItems.length} line item${parsedItems.length === 1 ? "" : "s"} from the PDF.`,
+    );
+    if (parsed.total !== undefined && Math.abs(parsed.total - itemsSubtotal) > 0.01) {
+      warnings.push(
+        `Line items total (${itemsSubtotal}) differs from the PDF total (${parsed.total}); please double-check.`,
+      );
+    }
+  }
+
+  const items: InvoiceItem[] = parsedItems.length
+    ? parsedItems
+    : total
+      ? [
+          {
+            description: "Imported invoice",
+            quantity: 1,
+            unit_price: total,
+            amount: total,
+          },
+        ]
+      : [];
 
   // Upload original PDF to storage.
   let pdfUrl: string | null = null;
@@ -249,18 +279,10 @@ export async function importInvoiceFromPdf(
   const input: InvoiceInput = {
     invoice_number: invoiceNumber,
     client_name: clientName,
+    client_address: parsed.clientAddress?.trim() || null,
     date,
     currency,
-    items: total
-      ? [
-          {
-            description: "Imported invoice",
-            quantity: 1,
-            unit_price: total,
-            amount: total,
-          },
-        ]
-      : [],
+    items,
     subtotal: total,
     tax_rate: 0,
     tax_amount: 0,
@@ -297,6 +319,7 @@ export type ParsedPdfPreview = {
   date?: string;
   total?: number;
   currency?: string;
+  items?: InvoiceItem[];
   warnings: string[];
 };
 
@@ -317,6 +340,7 @@ export async function parseInvoicePdfOnly(
     date: parsed.date || undefined,
     total: parsed.total,
     currency: parsed.currency?.toUpperCase() || undefined,
+    items: parsed.items && parsed.items.length ? parsed.items : undefined,
     warnings: parsed.warnings,
   };
 }

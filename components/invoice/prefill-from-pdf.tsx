@@ -62,7 +62,18 @@ export function PrefillFromPdf({ setValue, className }: PrefillFromPdfProps) {
         });
         filled.push("currency");
       }
-      if (typeof parsed.total === "number" && parsed.total > 0) {
+      if (parsed.items && parsed.items.length > 0) {
+        // Full line-item table was read — load every row so the user can edit.
+        const subtotal = parsed.items.reduce(
+          (sum, it) => sum + (it.amount || 0),
+          0,
+        );
+        setValue("items" as never, parsed.items as never, { shouldDirty: true });
+        setValue("to_be_paid" as never, subtotal as never, { shouldDirty: true });
+        filled.push(
+          `${parsed.items.length} line item${parsed.items.length === 1 ? "" : "s"}`,
+        );
+      } else if (typeof parsed.total === "number" && parsed.total > 0) {
         // Drop the total into a single line item the user can adjust.
         setValue(
           "items" as never,
