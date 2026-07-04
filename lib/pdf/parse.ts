@@ -93,14 +93,24 @@ async function extractText(file: File | Buffer): Promise<string> {
 
   // Lazy import for Node-friendly entrypoint.
   const pdfjs: any = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  // In Node there is no worker; disabling avoids "Cannot find module 'pdf.worker'" errors.
+  // pdfjs v4 dropped the `disableWorker` getDocument option and *requires* a
+  // valid GlobalWorkerOptions.workerSrc, even in Node where it runs the worker
+  // on the main thread ("fake worker"). Setting it to "" — or leaving it unset —
+  // throws: Setting up fake worker failed: No "GlobalWorkerOptions.workerSrc"
+  // specified. So point it at the legacy worker file on disk. `require.resolve`
+  // finds it in node_modules; pathToFileURL is mandatory on Windows (the ESM
+  // loader rejects bare "C:\..." paths — only file:// URLs are accepted).
   if (pdfjs.GlobalWorkerOptions) {
-    pdfjs.GlobalWorkerOptions.workerSrc = "";
+    const { createRequire } = await import("module");
+    const { pathToFileURL } = await import("url");
+    const req = createRequire(import.meta.url);
+    pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(
+      req.resolve("pdfjs-dist/legacy/build/pdf.worker.mjs"),
+    ).href;
   }
 
   const doc = await pdfjs.getDocument({
     data,
-    disableWorker: true,
     isEvalSupported: false,
     useSystemFonts: true,
   }).promise;
