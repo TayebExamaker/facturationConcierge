@@ -24,10 +24,19 @@ const nextConfig = {
   reactStrictMode: false,
   // Keep pdfjs-dist out of the server bundle: the PDF parser (lib/pdf/parse.ts)
   // resolves the legacy worker file at runtime with require.resolve, which only
-  // works when the package stays a real on-disk node_modules dependency (also
-  // lets Vercel's dependency tracer ship the worker file with the function).
+  // works when the package stays a real on-disk node_modules dependency.
   experimental: {
     serverComponentsExternalPackages: ["pdfjs-dist"],
+    // The worker path is resolved at runtime via a *dynamic* require (so webpack
+    // doesn't choke on the ESM-only file at build time). The trade-off: Vercel's
+    // file tracer can't statically see the worker is needed and drops it from
+    // the function bundle → "Cannot find module .../pdf.worker.mjs" in prod.
+    // Force it in. Server actions (parseInvoicePdfOnly / importInvoiceFromPdf)
+    // are globally registered, so any route can end up executing the parser —
+    // include the worker for every route that traces pdfjs.
+    outputFileTracingIncludes: {
+      "/**/*": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
+    },
   },
   webpack: (config) => {
     config.resolve.alias.canvas = false;
