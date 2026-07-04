@@ -1,8 +1,33 @@
 // Server-side PDF text extraction + heuristic field parsing.
 // Uses pdfjs-dist legacy build for Node compatibility.
 
+import { pathToFileURL } from "node:url";
+
 import { isKnownCurrency } from "@/lib/currencies";
 import { parseMoneyInput } from "@/lib/format";
+
+// Resolve pdfjs's legacy worker file as a file:// URL (mandatory on Windows,
+// harmless on Linux/Vercel), memoized on first use.
+//
+// The require MUST be a *real* Node require, obtained at runtime via
+// process.getBuiltinModule. A `createRequire` imported statically from
+// "node:module" gets its `.resolve` rewritten by Next's webpack plugin into the
+// bundler's own resolver — which only knows bundled modules and throws
+// "Cannot find module 'pdfjs-dist/legacy/build/pdf.worker.mjs'" at runtime even
+// though the file physically ships in node_modules (pdfjs-dist is externalized
+// via next.config.mjs serverComponentsExternalPackages). Fetching the builtin
+// at runtime keeps webpack from ever seeing the createRequire binding.
+let workerSrcCache: string | null = null;
+function resolvePdfWorkerSrc(): string {
+  if (workerSrcCache) return workerSrcCache;
+  const nodeModule = process.getBuiltinModule(
+    "node:module",
+  ) as typeof import("node:module");
+  const nodeRequire = nodeModule.createRequire(import.meta.url);
+  const spec = ["pdfjs-dist", "legacy", "build", "pdf.worker.mjs"].join("/");
+  workerSrcCache = pathToFileURL(nodeRequire.resolve(spec)).href;
+  return workerSrcCache;
+}
 
 export interface ParsedItem {
   description: string;
@@ -28,6 +53,11 @@ export interface ParsedPdf {
 const STOP_LABELS = [
   /^(from|email|tel|phone|fax|work|date|ref|trip|invoice|po|terms|currency|attn|attention|subject)\s*[:#]/i,
 ];
+
+// A line that is entirely a date — used to stop collecting the recipient block
+// before the invoice date (which some layouts stack right under the address).
+const RECIPIENT_STOP_DATE_RE =
+  /^(?:[A-Za-z]{3,9}\s+\d{1,2},?\s+20\d{2}|\d{1,2}\s+[A-Za-z]{3,9}\s+20\d{2}|20\d{2}-\d{2}-\d{2}|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})$/;
 
 const SYMBOL_TO_CODE: Record<string, string> = {
   $: "USD",
@@ -97,16 +127,9 @@ async function extractText(file: File | Buffer): Promise<string> {
   // valid GlobalWorkerOptions.workerSrc, even in Node where it runs the worker
   // on the main thread ("fake worker"). Setting it to "" — or leaving it unset —
   // throws: Setting up fake worker failed: No "GlobalWorkerOptions.workerSrc"
-  // specified. So point it at the legacy worker file on disk. `require.resolve`
-  // finds it in node_modules; pathToFileURL is mandatory on Windows (the ESM
-  // loader rejects bare "C:\..." paths — only file:// URLs are accepted).
+  // specified. Point it at the legacy worker file resolved above.
   if (pdfjs.GlobalWorkerOptions) {
-    const { createRequire } = await import("module");
-    const { pathToFileURL } = await import("url");
-    const req = createRequire(import.meta.url);
-    pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(
-      req.resolve("pdfjs-dist/legacy/build/pdf.worker.mjs"),
-    ).href;
+    pdfjs.GlobalWorkerOptions.workerSrc = resolvePdfWorkerSrc();
   }
 
   const doc = await pdfjs.getDocument({
@@ -209,12 +232,22 @@ function extractRecipient(
   const collected: string[] = [];
   if (inlineValue) collected.push(inlineValue);
   for (let j = toIdx + 1; j < lines.length && collected.length < 6; j++) {
-    const ln = lines[j].trim();
+    let ln = lines[j].trim();
     if (!ln) {
       if (collected.length) break;
       continue;
     }
     if (STOP_LABELS.some((re) => re.test(ln))) break;
+    // A standalone date line is the invoice date bleeding in below the address
+    // (common when the layout stacks it right after the recipient block).
+    if (RECIPIENT_STOP_DATE_RE.test(ln)) break;
+    // "Address :" is a sub-label inside the recipient block, not a stop label —
+    // drop the label itself but keep any inline value and the lines beneath it.
+    const addr = ln.match(/^address\s*:?\s*(.*)$/i);
+    if (addr) {
+      ln = addr[1].trim();
+      if (!ln) continue;
+    }
     collected.push(ln);
   }
 
@@ -235,19 +268,6 @@ function extractRecipient(
 }
 
 function extractDate(text: string, warnings: string[]): string | undefined {
-  // 1. ISO YYYY-MM-DD
-  const iso = text.match(/\b(20\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\b/);
-  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
-
-  // 2. DD/MM/YYYY or DD-MM-YYYY
-  const dmy = text.match(/\b(0?[1-9]|[12]\d|3[01])[\/\-](0?[1-9]|1[0-2])[\/\-](20\d{2})\b/);
-  if (dmy) {
-    const d = dmy[1].padStart(2, "0");
-    const m = dmy[2].padStart(2, "0");
-    return `${dmy[3]}-${m}-${d}`;
-  }
-
-  // 3. Month DD, YYYY
   const months: Record<string, string> = {
     january: "01", february: "02", march: "03", april: "04",
     may: "05", june: "06", july: "07", august: "08",
@@ -256,6 +276,12 @@ function extractDate(text: string, warnings: string[]): string | undefined {
     jun: "06", jul: "07", aug: "08", sep: "09", sept: "09",
     oct: "10", nov: "11", dec: "12",
   };
+
+  // Textual-month dates first: "May 2, 2026" / "22 May 2026" are almost always
+  // the invoice header date, whereas numeric dates (ISO / DD-MM-YYYY) tend to
+  // litter the line-item rows (trip dates), so a numeric-first scan would grab a
+  // line-item date over the real invoice date.
+  // 1. Month DD, YYYY
   const mdy = text.match(/\b([A-Za-z]{3,9})\s+(\d{1,2}),?\s+(20\d{2})\b/);
   if (mdy) {
     const m = months[mdy[1].toLowerCase()];
@@ -264,7 +290,7 @@ function extractDate(text: string, warnings: string[]): string | undefined {
     }
   }
 
-  // 4. DD Month YYYY ("22 May 2026")
+  // 2. DD Month YYYY ("22 May 2026")
   const dmyText = text.match(/\b(\d{1,2})\s+([A-Za-z]{3,9})\s+(20\d{2})\b/);
   if (dmyText) {
     const m = months[dmyText[2].toLowerCase()];
@@ -273,18 +299,50 @@ function extractDate(text: string, warnings: string[]): string | undefined {
     }
   }
 
+  // 3. ISO YYYY-MM-DD
+  const iso = text.match(/\b(20\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\b/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+
+  // 4. DD/MM/YYYY or DD-MM-YYYY
+  const dmy = text.match(/\b(0?[1-9]|[12]\d|3[01])[\/\-](0?[1-9]|1[0-2])[\/\-](20\d{2})\b/);
+  if (dmy) {
+    const d = dmy[1].padStart(2, "0");
+    const m = dmy[2].padStart(2, "0");
+    return `${dmy[3]}-${m}-${d}`;
+  }
+
   warnings.push("Could not detect invoice date");
   return undefined;
 }
 
+function currencyTokenToCode(tok: string): string | undefined {
+  const t = tok.trim();
+  if (/^(?:\$US|US\$)$/.test(t)) return "USD";
+  if (t === "CA$") return "CAD";
+  if (t === "$") return "USD"; // ambiguous, but the app emits USD as "$US"
+  if (SYMBOL_TO_CODE[t]) return SYMBOL_TO_CODE[t];
+  const up = t.toUpperCase();
+  return isKnownCurrency(up) ? up : undefined;
+}
+
 function extractCurrency(text: string, warnings: string[]): string | undefined {
-  // 1. Explicit ISO code (case-insensitive) — match common ones first.
+  // 1. A currency token glued to a money amount ("117 619,00 $US") is the
+  //    invoice's real currency. Prefer it over a bare ISO code that may appear
+  //    in prose — e.g. payment instructions like "Enter amount in AED (1 USD =
+  //    …)" would otherwise hijack a USD invoice to AED.
+  const adjacent = text.match(new RegExp(`${ITEM_MONEY}\\s*(${ITEM_CURRENCY})`));
+  if (adjacent) {
+    const code = currencyTokenToCode(adjacent[1]);
+    if (code) return code;
+  }
+
+  // 2. Explicit ISO code (case-insensitive) — match common ones first.
   const codeMatch = text.match(
     /\b(USD|EUR|GBP|JPY|CHF|CAD|AUD|CNY|HKD|SGD|NZD|KRW|INR|BRL|MXN|RUB|TRY|ZAR|SEK|NOK|DKK|PLN|CZK|HUF|RON|ILS|ISK|AED|SAR|QAR|KWD|BHD|OMR|THB|IDR|MYR|PHP|VND|LAK|KHR|MMK|BND|ARS|CLP|COP|PEN|UYU|EGP|MAD|NGN|KES|GHS|BTC|USDT|USDC)\b/
   );
   if (codeMatch && isKnownCurrency(codeMatch[1])) return codeMatch[1].toUpperCase();
 
-  // 2. Symbol
+  // 3. Symbol
   for (const sym of Object.keys(SYMBOL_TO_CODE)) {
     if (text.includes(sym)) return SYMBOL_TO_CODE[sym];
   }
