@@ -19,6 +19,8 @@ export const PAYMENT_BLOCK = `USD Payment :
 Global Account Name: One Concierge LLC
 Bank Account Number: 439513543316178
 ACH Routing Number: 121145307
+Address: 1209 Menaul BLVD NE St A, Albuquerque, NM 87107, USA
+Name of the Bank: Slash
 
 
 Paiement en EUR :
