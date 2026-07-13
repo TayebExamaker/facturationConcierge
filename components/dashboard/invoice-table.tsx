@@ -207,6 +207,7 @@ export function InvoiceTable({ invoices, className }: InvoiceTableProps) {
             const currency = String(r.currency ?? "USD");
             const status = r.status as string | undefined;
             const source = String(r.source ?? "manual");
+            const label = formatInvoiceLabel(number, client);
 
             return (
               <TableRow
@@ -235,9 +236,15 @@ export function InvoiceTable({ invoices, className }: InvoiceTableProps) {
                 }}
               >
                 <TableCell className="font-mono text-sm">
-                  {formatInvoiceLabel(number, client)}
+                  <span className="block max-w-[16ch] truncate" title={label}>
+                    {label}
+                  </span>
                 </TableCell>
-                <TableCell className="font-medium">{client}</TableCell>
+                <TableCell className="font-medium">
+                  <span className="block max-w-[22ch] truncate" title={client}>
+                    {client}
+                  </span>
+                </TableCell>
                 <TableCell className="text-muted-foreground hidden sm:table-cell">
                   {issueDate ? formatDate(issueDate) : "—"}
                 </TableCell>
