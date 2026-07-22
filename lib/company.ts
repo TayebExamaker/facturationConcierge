@@ -23,13 +23,13 @@ Address: 1209 Menaul BLVD NE St A, Albuquerque, NM 87107, USA
 Name of the Bank: Slash
 
 
-Paiement en EUR SWIFT :
+Paiement en EUR SWIFT (For account outside of Europe):
 
 Nom du compte: CONCIERGE ONE GROUP LTD
 Numéro de compte: 0020644437
 Code banque: 8900
 Code SWIFT: SXPYDKKK
-Localisation du compte: Danemark
+Localisation du compte: Danemark (Europe)
 IBAN: DK8289000020644437
 Nom de la banque: Banking Circle S.A.
 Adresse de la banque: Amerika Plads, 38, Copenhagen, Danemark, 2100
