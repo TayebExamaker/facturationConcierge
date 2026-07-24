@@ -37,7 +37,6 @@ Bank Address: Amerika Plads, 38, Copenhagen, Danemark, 2100
 
 EUR SEPA Payment:
 
-Airwallex Global Account Information:
 Global Account Name: CONCIERGE ONE GROUP LTD
 IBAN: DE18202208000047274348
 SWIFT Code: SXPYDEHH
