@@ -14,41 +14,41 @@ export const COMPANY = {
   short: "COG",
 } as const;
 
-export const PAYMENT_BLOCK = `USD Payment :
+export const PAYMENT_BLOCK = `USD Payment:
 
 Global Account Name: One Concierge LLC
 Bank Account Number: 439513543316178
 ACH Routing Number: 121145307
 Address: 1209 Menaul BLVD NE St A, Albuquerque, NM 87107, USA
-Name of the Bank: Slash
+Bank Name: Slash
 
 
-Paiement en EUR SWIFT (For account outside of Europe):
+EUR SWIFT Payment (For accounts outside of Europe):
 
-Nom du compte: CONCIERGE ONE GROUP LTD
-Numéro de compte: 0020644437
-Code banque: 8900
-Code SWIFT: SXPYDKKK
-Localisation du compte: Danemark (Europe)
+Account Name: CONCIERGE ONE GROUP LTD
+Account Number: 0020644437
+Bank Code: 8900
+SWIFT Code: SXPYDKKK
+Account Location: Danemark (Europe)
 IBAN: DK8289000020644437
-Nom de la banque: Banking Circle S.A.
-Adresse de la banque: Amerika Plads, 38, Copenhagen, Danemark, 2100
+Bank Name: Banking Circle S.A.
+Bank Address: Amerika Plads, 38, Copenhagen, Danemark, 2100
 
 
-Paiement en EUR SEPA :
+EUR SEPA Payment:
 
-Informations sur le compte mondial d'Airwallex :
-Nom du Compte Global: CONCIERGE ONE GROUP LTD
+Airwallex Global Account Information:
+Global Account Name: CONCIERGE ONE GROUP LTD
 IBAN: DE18202208000047274348
-Code SWIFT: SXPYDEHH
-Nom de la banque: Banking Circle S.A.
-Lieu: Allemagne
-Adresse de la banque: MAXIMILIANSTR 54
-Ville: Muenchen
-Code postal: D-80538
+SWIFT Code: SXPYDEHH
+Bank Name: Banking Circle S.A.
+Location: Allemagne
+Bank Address: MAXIMILIANSTR 54
+City: Muenchen
+Postal Code: D-80538
 
 
-Pound payment :
+GBP Payment:
 
 Global Account Name: CONCIERGE ONE GROUP LTD
 Bank Account Number: 05112702
@@ -58,7 +58,7 @@ Bank Name: AIRWALLEX (UK) LIMITED
 Location: Labs House 15-19 Bloomsbury Way, London, WC1A 2TH, UK
 
 
-Paiement in AED :
+AED Payment:
 
 Account Name: CONCIERGE ONE GROUP LTD
 IBAN: AE630446498900000104171
