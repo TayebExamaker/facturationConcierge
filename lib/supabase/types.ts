@@ -66,6 +66,15 @@ export interface InvoiceInput {
   pdf_url?: string | null;
 }
 
+// public.app_settings — one row per company (see 0005_app_settings.sql).
+// Holds the global payment block; invoices inherit it when their own
+// `payment_instructions` is null.
+export interface AppSettings {
+  company: string;
+  payment_instructions: string | null;
+  updated_at: string;
+}
+
 export interface InvoiceFilters {
   status?: InvoiceStatus;
   currency?: string;
@@ -92,6 +101,12 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Omit<Invoice, "id" | "created_at" | "updated_at">>;
+        Relationships: [];
+      };
+      app_settings: {
+        Row: AppSettings;
+        Insert: Omit<AppSettings, "updated_at"> & { updated_at?: string };
+        Update: Partial<AppSettings>;
         Relationships: [];
       };
     };

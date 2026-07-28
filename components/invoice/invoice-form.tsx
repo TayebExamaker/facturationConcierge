@@ -52,6 +52,12 @@ export interface InvoiceFormProps {
   invoiceId?: string;
   /** Initial values when editing or pre-filling from an imported PDF. */
   defaultValues?: Partial<InvoiceFormShape> & Record<string, unknown>;
+  /**
+   * Global payment block from /settings (server-fetched). Used as the initial
+   * value and as the target of "Reset to default"; falls back to the built-in
+   * PAYMENT_BLOCK constant when not supplied.
+   */
+  defaultPaymentInstructions?: string;
   className?: string;
 }
 
@@ -82,22 +88,38 @@ function todayLocalISO(): string {
   return `${y}-${m}-${day}`;
 }
 
-export function InvoiceForm({ invoiceId, defaultValues, className }: InvoiceFormProps) {
+export function InvoiceForm({
+  invoiceId,
+  defaultValues,
+  defaultPaymentInstructions,
+  className,
+}: InvoiceFormProps) {
   const router = useRouter();
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState<null | "draft" | "preview" | "pdf">(null);
   const [autoFilling, setAutoFilling] = React.useState(false);
 
+  // Global block edited in /settings; the constant is only a safety net for
+  // callers that don't pass it (or a DB that predates app_settings).
+  const paymentDefault = React.useMemo(
+    () =>
+      defaultPaymentInstructions && defaultPaymentInstructions.trim()
+        ? defaultPaymentInstructions
+        : PAYMENT_BLOCK,
+    [defaultPaymentInstructions],
+  );
+
   const merged = React.useMemo(() => {
     const base = { ...EMPTY_DEFAULTS, ...(defaultValues as Partial<InvoiceFormShape>) };
     // Legacy invoices saved before payment_instructions existed have null/empty
-    // — fall back to the company default so the textarea is never blank.
+    // — fall back to the global block so the textarea is never blank. Same when
+    // the value is still the untouched constant (new-invoice defaults).
     const pi = (base as { payment_instructions?: string | null }).payment_instructions;
-    if (!pi || (typeof pi === "string" && pi.trim() === "")) {
-      (base as Record<string, unknown>).payment_instructions = PAYMENT_BLOCK;
+    if (!pi || pi.trim() === "" || pi.trim() === PAYMENT_BLOCK.trim()) {
+      (base as Record<string, unknown>).payment_instructions = paymentDefault;
     }
     return base;
-  }, [defaultValues]);
+  }, [defaultValues, paymentDefault]);
 
   const form = useForm<InvoiceFormShape>({
     resolver: zodResolver(invoiceFormSchema) as never,
@@ -515,14 +537,15 @@ export function InvoiceForm({ invoiceId, defaultValues, className }: InvoiceForm
         </CardContent>
       </Card>
 
-      {/* Payment instructions — defaults to the company PAYMENT_BLOCK, editable per invoice. */}
+      {/* Payment instructions — defaults to the global block from /settings,
+          overridable per invoice (an edit here only affects this invoice). */}
       <Card className="luxury-card">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Payment Instructions</CardTitle>
           <button
             type="button"
             onClick={() =>
-              setValue("payment_instructions" as never, PAYMENT_BLOCK as never, {
+              setValue("payment_instructions" as never, paymentDefault as never, {
                 shouldDirty: true,
               })
             }
@@ -542,6 +565,14 @@ export function InvoiceForm({ invoiceId, defaultValues, className }: InvoiceForm
           <p className="text-[11px] text-muted-foreground">
             Shown in the “Payment Information” section of the preview and PDF.
             Lines that end with “:” render as section headings in the PDF.
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            Editing here overrides this invoice only. To change the bank details
+            on every invoice, use{" "}
+            <Link href="/settings" className="text-gold hover:underline">
+              Settings → Payment Details
+            </Link>
+            .
           </p>
         </CardContent>
       </Card>

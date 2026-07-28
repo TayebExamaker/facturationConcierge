@@ -7,6 +7,7 @@ import { PageShell } from "@/components/layout/page-shell";
 import { StatusPill } from "@/components/invoice/status-pill";
 import { formatInvoiceLabel } from "@/lib/format";
 import { getInvoice } from "@/app/actions/invoices";
+import { getPaymentInstructions } from "@/app/actions/settings";
 import {
   InvoiceActionsIsland,
   InvoiceFormIsland,
@@ -37,6 +38,7 @@ export default async function InvoiceDetailPage({
 
   const inv = invoice;
   const isEditing = searchParams?.edit === "1";
+  const paymentInstructions = isEditing ? await getPaymentInstructions() : undefined;
 
   return (
     <PageShell>
@@ -74,7 +76,11 @@ export default async function InvoiceDetailPage({
                 <Link href={`/invoices/${params.id}`}>Back to view</Link>
               </Button>
             </div>
-            <InvoiceFormIsland invoiceId={params.id} defaultValues={invoice} />
+            <InvoiceFormIsland
+              invoiceId={params.id}
+              defaultValues={invoice}
+              defaultPaymentInstructions={paymentInstructions}
+            />
           </>
         ) : (
           <>

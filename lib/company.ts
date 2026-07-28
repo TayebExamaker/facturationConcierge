@@ -14,6 +14,13 @@ export const COMPANY = {
   short: "COG",
 } as const;
 
+/**
+ * Built-in payment details. This is the *fallback / factory reset* value only:
+ * the live block is stored in `public.app_settings` and edited from /settings
+ * (see `app/actions/settings.ts`). Invoices whose `payment_instructions` is
+ * null inherit the stored block at read time, so editing it in the app updates
+ * every invoice at once. Keep this constant in sync-ish, but the DB wins.
+ */
 export const PAYMENT_BLOCK = `USD Payment:
 
 Global Account Name: One Concierge LLC
@@ -26,13 +33,13 @@ Bank Name: Slash
 EUR SWIFT Payment (For accounts outside of Europe):
 
 Account Name: CONCIERGE ONE GROUP LTD
-Account Number: 0020644437
-Bank Code: 8900
-SWIFT Code: SXPYDKKK
-Account Location: Danemark (Europe)
-IBAN: DK8289000020644437
-Bank Name: Banking Circle S.A.
-Bank Address: Amerika Plads, 38, Copenhagen, Danemark, 2100
+Account Number: 88538746180
+Bank Code: 7171
+Agency Code: 072
+SWIFT Code: DBSSSGSG
+Country: Singapour
+Bank Name: DBS Bank Ltd
+Bank Address: 12 Marina Boulevard, DBS Asia Central, Marina Bay Financial Centre Tower 3, Singapore, Singapour, 018982
 
 
 EUR SEPA Payment:

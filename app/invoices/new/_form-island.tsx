@@ -42,11 +42,20 @@ function toDefaults(p: Prefill | undefined) {
   };
 }
 
-export default function InvoiceFormIsland({ prefill }: { prefill?: Prefill }) {
+export default function InvoiceFormIsland({
+  prefill,
+  defaultPaymentInstructions,
+}: {
+  prefill?: Prefill;
+  defaultPaymentInstructions?: string;
+}) {
   const defaults = toDefaults(prefill);
   return (
     <ClientOnly fallback={Skeleton}>
-      <InvoiceForm defaultValues={defaults as never} />
+      <InvoiceForm
+        defaultValues={defaults as never}
+        defaultPaymentInstructions={defaultPaymentInstructions}
+      />
     </ClientOnly>
   );
 }

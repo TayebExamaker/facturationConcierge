@@ -1,4 +1,5 @@
 import { PageShell } from "@/components/layout/page-shell";
+import { getPaymentInstructions } from "@/app/actions/settings";
 import InvoiceFormIsland from "./_form-island";
 
 export const dynamic = "force-dynamic";
@@ -32,8 +33,9 @@ function decodePrefill(raw: string | undefined): PrefillPayload | undefined {
   }
 }
 
-export default function NewInvoicePage({ searchParams }: PageProps) {
+export default async function NewInvoicePage({ searchParams }: PageProps) {
   const prefill = decodePrefill(searchParams?.prefill);
+  const paymentInstructions = await getPaymentInstructions();
 
   return (
     <PageShell>
@@ -48,7 +50,10 @@ export default function NewInvoicePage({ searchParams }: PageProps) {
       </div>
       <div className="gold-divider mb-6" aria-hidden="true" />
 
-      <InvoiceFormIsland prefill={prefill} />
+      <InvoiceFormIsland
+        prefill={prefill}
+        defaultPaymentInstructions={paymentInstructions}
+      />
     </PageShell>
   );
 }

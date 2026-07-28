@@ -45,7 +45,8 @@ Light theme, sobre, accents noirs (inspiration invoice-generator.com).
 - `lib/format.ts` : `formatMoney(amount, currency)`, `formatDate(date)`, `formatInvoiceLabel(num, name)`, `pascalCaseName`, `parseMoneyInput`.
 - Filtres invoice (côté server) : `{ status?, currency?, clientName?, dateFrom?, dateTo? }`. **Ne pas confondre avec** `client / from / to` (état local de la FilterBar).
 - Champ date sur l'invoice : **`date`** (pas `issue_date`). Adresse client : **`client_address`** (pas `delivery_address`).
-- `PAYMENT_BLOCK` (constante `lib/company.ts`) est **automatiquement injecté** dans `InvoicePreview` ET dans le PDF généré — ne jamais l'inliner.
+- `app/actions/settings.ts` exporte : `getPaymentInstructions`, `isPaymentInstructionsCustomized`, `updatePaymentInstructions(text, applyToExisting?)`, `resetPaymentInstructions`.
+- **Coordonnées bancaires** : la source de vérité est la table `public.app_settings` (une ligne par `company`), éditable depuis `/settings`. `PAYMENT_BLOCK` (constante `lib/company.ts`) n'est plus qu'un **fallback / reset usine**. `invoices.payment_instructions` est un **override par facture** : `null` = suit le bloc global (résolu à la lecture dans `listInvoices` / `getInvoice`). Ne jamais inliner le bloc dans un composant.
 
 ## Pièges connus
 
@@ -101,6 +102,6 @@ Installé via `npx claude-code-templates@latest --skill development/code-reviewe
 
 - Pour un changement visuel non-trivial → demander d'invoquer `ui-ux-pro-max` ou `frontend-design`.
 - Pour une revue → invoquer `code-reviewer`.
-- Pour les pages : `app/page.tsx` redirige sur `/dashboard`. Le formulaire vit à `/invoices/new`, l'édition à `/invoices/[id]?edit=1`, l'import à `/invoices/import`.
+- Pour les pages : `app/page.tsx` redirige sur `/dashboard`. Le formulaire vit à `/invoices/new`, l'édition à `/invoices/[id]?edit=1`, l'import à `/invoices/import`, les coordonnées bancaires globales à `/settings`.
 - Le mode dev Next.js désactive le PWA (`disable: process.env.NODE_ENV === "development"` dans `next.config.mjs`) — pour tester l'installation PWA il faut `npm run build && npm run start`.
 - Quand un agent BACK et FRONT travaillent en parallèle, **les contrats d'API ci-dessus sont la source de vérité**. Si un agent dévie, c'est l'agent FRONT qui s'aligne sur les noms du schéma.

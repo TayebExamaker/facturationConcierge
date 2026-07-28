@@ -22,6 +22,7 @@ const NAV_LINKS: ReadonlyArray<{ href: string; label: string }> = [
   { href: "/clients", label: "Clients" },
   { href: "/invoices/new", label: "New Invoice" },
   { href: "/invoices/import", label: "Import" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export function TopNav() {

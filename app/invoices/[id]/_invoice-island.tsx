@@ -33,12 +33,14 @@ export function InvoiceActionsIsland(props: { invoice: Invoice }) {
 export function InvoiceFormIsland(props: {
   invoiceId: string;
   defaultValues: unknown;
+  defaultPaymentInstructions?: string;
 }) {
   return (
     <ClientOnly fallback={formSkeleton}>
       <InvoiceForm
         invoiceId={props.invoiceId}
         defaultValues={props.defaultValues as never}
+        defaultPaymentInstructions={props.defaultPaymentInstructions}
       />
     </ClientOnly>
   );

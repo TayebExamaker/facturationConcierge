@@ -7,6 +7,7 @@ import { parseInvoicePdf } from "@/lib/pdf/parse";
 import { invoicesToCsv } from "@/lib/csv/export";
 import { formatInvoiceLabel } from "@/lib/format";
 import { COMPANY_KEY } from "@/lib/company";
+import { getPaymentInstructions } from "./settings";
 import type {
   Invoice,
   InvoiceFilters,
@@ -36,7 +37,7 @@ export async function listInvoices(filters?: InvoiceFilters): Promise<Invoice[]>
 
   const { data, error } = await q;
   if (error) throw new Error(`Failed to list invoices: ${error.message}`);
-  return (data ?? []) as Invoice[];
+  return withPaymentInstructions((data ?? []) as Invoice[]);
 }
 
 /**
@@ -51,7 +52,9 @@ export async function getInvoice(id: string): Promise<Invoice | null> {
     .eq("company", COMPANY_KEY)
     .maybeSingle();
   if (error) throw new Error(`Failed to load invoice: ${error.message}`);
-  return (data as Invoice | null) ?? null;
+  const row = (data as Invoice | null) ?? null;
+  if (!row) return null;
+  return (await withPaymentInstructions([row]))[0];
 }
 
 /**
@@ -60,6 +63,9 @@ export async function getInvoice(id: string): Promise<Invoice | null> {
 export async function createInvoice(input: InvoiceInput): Promise<Invoice> {
   const supabase = createClient();
   const row = prepareRow(input);
+  row.payment_instructions = await unlinkIfGlobal(
+    row.payment_instructions as string | null
+  );
 
   const { data, error } = await supabase
     .from("invoices")
@@ -92,6 +98,12 @@ export async function updateInvoice(
 ): Promise<Invoice> {
   const supabase = createClient();
   const patch: Record<string, unknown> = { ...input };
+
+  // Only store payment instructions when they actually differ from the global
+  // block, so the invoice keeps following /settings unless deliberately edited.
+  if (input.payment_instructions !== undefined) {
+    patch.payment_instructions = await unlinkIfGlobal(input.payment_instructions);
+  }
 
   // Recompute label if client or number changed.
   if (input.client_name !== undefined || input.invoice_number !== undefined) {
@@ -346,6 +358,35 @@ export async function parseInvoicePdfOnly(
 }
 
 // ---------- helpers ----------
+
+/**
+ * Fill in `payment_instructions` from the global block (app_settings) for every
+ * row that has none. A null column means "follow the global block", so editing
+ * it in /settings updates previews, PDFs and CSV exports for all invoices at
+ * once. The settings row is fetched once per call, and only when needed.
+ */
+async function withPaymentInstructions(rows: Invoice[]): Promise<Invoice[]> {
+  const needsFallback = rows.some((r) => !r.payment_instructions?.trim());
+  if (!needsFallback) return rows;
+  const globalBlock = await getPaymentInstructions();
+  return rows.map((r) =>
+    r.payment_instructions?.trim() ? r : { ...r, payment_instructions: globalBlock }
+  );
+}
+
+/**
+ * Collapse a payment block that is identical to the global one back to null so
+ * the invoice stays linked to /settings. Anything else is kept verbatim as a
+ * per-invoice override.
+ */
+async function unlinkIfGlobal(
+  value: string | null | undefined
+): Promise<string | null> {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  const globalBlock = await getPaymentInstructions();
+  return trimmed === globalBlock.trim() ? null : trimmed;
+}
 
 function prepareRow(input: InvoiceInput): Record<string, unknown> {
   const label =
