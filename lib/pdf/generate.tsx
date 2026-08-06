@@ -228,35 +228,63 @@ const styles = StyleSheet.create({
   footerText: { color: COLORS.muted, fontSize: 8 },
 });
 
+// A heading is a short line (<= 55 chars) ending with ":" (optionally "  :"),
+// with no other colon in its content. Catches "USD Payment:" as well as the
+// longer "EUR SWIFT Payment (For accounts outside of Europe):" without
+// hard-coding the keyword "Payment".
+function isPaymentHeading(line: string): boolean {
+  const m = /^(.{1,55}?)\s*:\s*$/.exec(line.trim());
+  return m !== null && m[1].length > 0 && !m[1].includes(":");
+}
+
 function PaymentBlock({ text }: { text: string }): React.ReactElement {
-  // Render the PAYMENT_BLOCK string with section headings styled.
-  // A heading is a short line (<= 55 chars) ending with ":" (optionally "  :"),
-  // with no other colon in its content. Catches "USD Payment:" as well as the
-  // longer "EUR SWIFT Payment (For accounts outside of Europe):" without
-  // hard-coding the keyword "Payment".
+  // Render the payment block with section headings styled, one <View> per
+  // section. Each section is wrap={false} so a page break can only land
+  // *between* sections — otherwise a heading gets orphaned at the bottom of a
+  // page with its bank details on the next one.
   const lines = text.split(/\r?\n/);
-  const nodes: React.ReactElement[] = [];
+  const sections: { start: number; lines: string[] }[] = [];
   lines.forEach((line, idx) => {
-    const trimmed = line.trim();
-    const m = /^(.{1,55}?)\s*:\s*$/.exec(trimmed);
-    const isHeading = m !== null && m[1].length > 0 && !m[1].includes(":");
-    if (isHeading) {
-      nodes.push(
-        <Text key={idx} style={styles.paymentHeading}>
-          {trimmed}
-        </Text>
-      );
-    } else if (trimmed === "") {
-      nodes.push(<Text key={idx} style={styles.paymentLine}> </Text>);
-    } else {
-      nodes.push(
-        <Text key={idx} style={styles.paymentLine}>
-          {line}
-        </Text>
-      );
-    }
+    const last = sections[sections.length - 1];
+    // Start a new section on a heading, but only once the current one holds
+    // real content — consecutive headings stay together.
+    const startNew =
+      last === undefined ||
+      (isPaymentHeading(line) && last.lines.some((l) => l.trim() !== "" && !isPaymentHeading(l)));
+    if (startNew) sections.push({ start: idx, lines: [line] });
+    else last.lines.push(line);
   });
-  return <View>{nodes}</View>;
+
+  return (
+    <View>
+      {sections.map((section) => (
+        <View key={section.start} wrap={false}>
+          {section.lines.map((line, i) => {
+            const key = section.start + i;
+            if (isPaymentHeading(line)) {
+              return (
+                <Text key={key} style={styles.paymentHeading}>
+                  {line.trim()}
+                </Text>
+              );
+            }
+            if (line.trim() === "") {
+              return (
+                <Text key={key} style={styles.paymentLine}>
+                  {" "}
+                </Text>
+              );
+            }
+            return (
+              <Text key={key} style={styles.paymentLine}>
+                {line}
+              </Text>
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
 }
 
 interface DocProps {
@@ -350,8 +378,13 @@ export function InvoicePdfDocument({ invoice }: DocProps): React.ReactElement {
               <Text style={[styles.th, styles.colAmt]}>Amount</Text>
             </View>
             {(invoice.items ?? []).map((it, idx) => (
+              // wrap={false} keeps a row atomic across a page break. Without it
+              // @react-pdf splits the row: the multi-line description flows onto
+              // the next page while the single-line qty/price/amount cells stay
+              // behind, so the amount ends up on a different page than its line.
               <View
                 key={idx}
+                wrap={false}
                 style={idx % 2 === 1 ? [styles.tr, styles.trAlt] : styles.tr}
               >
                 <Text style={[styles.cell, styles.colDesc]}>{it.description}</Text>
@@ -366,8 +399,9 @@ export function InvoicePdfDocument({ invoice }: DocProps): React.ReactElement {
             ))}
           </View>
 
-          {/* Totals */}
-          <View style={styles.totals}>
+          {/* Totals — atomic too, so Subtotal never sits on a page without
+              the "To be paid" grand row it belongs to. */}
+          <View style={styles.totals} wrap={false}>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Subtotal</Text>
               <Text style={styles.totalValue}>
