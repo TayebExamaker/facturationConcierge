@@ -210,9 +210,15 @@ export function InvoicePreview({ invoice, className }: InvoicePreviewProps) {
             value={formatMoney(totals.total, currency)}
             emphasis
           />
+          {totals.toBePaid < totals.total ? (
+            <TotalRow
+              label="Amount paid"
+              value={`- ${formatMoney(totals.total - totals.toBePaid, currency)}`}
+            />
+          ) : null}
           {totals.toBePaid !== totals.total ? (
             <TotalRow
-              label="To be paid"
+              label={totals.toBePaid < totals.total ? "Balance due" : "To be paid"}
               value={formatMoney(totals.toBePaid, currency)}
               gold
             />

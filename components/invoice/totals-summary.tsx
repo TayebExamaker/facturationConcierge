@@ -104,10 +104,30 @@ export function TotalsSummary({
     () => Number(shippingW) > 0,
   );
 
+  // Amount already paid (deposit, partial payment). Not a stored column:
+  // it lives as `to_be_paid = total - paid`, so the PDF and preview derive it
+  // back the same way. Seeded from an existing invoice whose to_be_paid < total.
+  const [paidInput, setPaidInput] = React.useState<string>(() => {
+    const tbp = Number(toBePaidW);
+    const paid = Number.isFinite(tbp) ? totals.total - tbp : 0;
+    return paid > 0.005 ? String(Number(paid.toFixed(2))) : "";
+  });
+  const [showPaid, setShowPaid] = React.useState<boolean>(() => paidInput !== "");
+  const paid = showPaid ? toNumberLoose(paidInput) : 0;
+
   // Keep `to_be_paid` synced with `total` until the user types something.
   const userOverride = React.useRef<boolean>(false);
   const lastTotal = React.useRef<number>(totals.total);
   React.useEffect(() => {
+    if (showPaid) {
+      // Amount paid drives the balance; follow line-item edits too.
+      const balance = Number(Math.max(0, totals.total - paid).toFixed(2));
+      if (Number(toBePaidW) !== balance) {
+        setValue("to_be_paid" as never, balance as never, { shouldDirty: true });
+      }
+      lastTotal.current = totals.total;
+      return;
+    }
     const current = Number(toBePaidW);
     const synced =
       toBePaidW === undefined ||
@@ -118,7 +138,14 @@ export function TotalsSummary({
       setValue("to_be_paid" as never, totals.total as never, { shouldDirty: false });
     }
     lastTotal.current = totals.total;
-  }, [totals.total, toBePaidW, setValue]);
+  }, [totals.total, toBePaidW, setValue, showPaid, paid]);
+
+  const removePaid = () => {
+    setShowPaid(false);
+    setPaidInput("");
+    userOverride.current = false;
+    setValue("to_be_paid" as never, totals.total as never, { shouldDirty: true });
+  };
 
   const removeDiscount = () => {
     setValue("discount" as never, 0 as never, { shouldDirty: true });
@@ -228,7 +255,7 @@ export function TotalsSummary({
       ) : null}
 
       {/* Add chips */}
-      {!showDiscount || !showShipping ? (
+      {!showDiscount || !showShipping || !showPaid ? (
         <div className="flex items-center gap-4 -mt-1">
           {!showDiscount ? (
             <button
@@ -250,6 +277,16 @@ export function TotalsSummary({
               Shipping
             </button>
           ) : null}
+          {!showPaid ? (
+            <button
+              type="button"
+              onClick={() => setShowPaid(true)}
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Amount paid
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -266,8 +303,36 @@ export function TotalsSummary({
         }
       />
 
+      {/* Amount already paid — deducted from the total */}
+      {showPaid ? (
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm text-muted-foreground">Amount paid</span>
+          <div className="flex items-center gap-2">
+            <Input
+              id="amount_paid"
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              autoFocus={paidInput === ""}
+              value={paidInput}
+              onChange={(e) => setPaidInput(e.target.value)}
+              className="h-10 w-32 text-right tabular-nums"
+              aria-label="Amount already paid"
+            />
+            <button
+              type="button"
+              onClick={removePaid}
+              aria-label="Remove amount paid"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {/* To Be Paid override input */}
-      <div className="flex items-center justify-end gap-3">
+      <div className={cn("flex items-center justify-end gap-3", showPaid && "hidden")}>
         <Label htmlFor="to_be_paid" className="sr-only">
           To be paid (override)
         </Label>
@@ -295,7 +360,9 @@ export function TotalsSummary({
 
       {/* Final balance */}
       <div className="flex items-end justify-between">
-        <span className="text-base font-bold text-foreground">To Be Paid</span>
+        <span className="text-base font-bold text-foreground">
+          {showPaid && paid > 0 ? "Balance Due" : "To Be Paid"}
+        </span>
         <span className="text-xl font-bold tabular-nums text-foreground">
           {formatMoney(
             Number.isFinite(Number(toBePaidW)) ? Number(toBePaidW) : totals.total,

@@ -295,6 +295,11 @@ export function InvoicePdfDocument({ invoice }: DocProps): React.ReactElement {
   const label =
     invoice.label ||
     formatInvoiceLabel(invoice.invoice_number, invoice.client_name);
+  // A "to be paid" below the total means part of it was already settled.
+  const amountPaid =
+    invoice.to_be_paid != null
+      ? Math.round((Number(invoice.total) - Number(invoice.to_be_paid)) * 100) / 100
+      : 0;
 
   return (
     <Document
@@ -434,8 +439,24 @@ export function InvoicePdfDocument({ invoice }: DocProps): React.ReactElement {
                 </Text>
               </View>
             ) : null}
+            {amountPaid > 0 ? (
+              <>
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Total</Text>
+                  <Text style={styles.totalValue}>
+                    {formatMoney(invoice.total, invoice.currency)}
+                  </Text>
+                </View>
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Amount paid</Text>
+                  <Text style={styles.totalValue}>
+                    -{formatMoney(amountPaid, invoice.currency)}
+                  </Text>
+                </View>
+              </>
+            ) : null}
             <View style={styles.grandRow}>
-              <Text style={styles.grandLabel}>To be paid</Text>
+              <Text style={styles.grandLabel}>{amountPaid > 0 ? "Balance due" : "To be paid"}</Text>
               <Text style={styles.grandValue}>
                 {formatMoney(invoice.to_be_paid ?? invoice.total, invoice.currency)}
               </Text>
