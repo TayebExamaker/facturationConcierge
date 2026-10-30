@@ -1,10 +1,11 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { Logo } from "@/components/brand/logo";
+import { FadeIn } from "@/components/motion/primitives";
 import { COMPANY } from "@/lib/company";
 import { AUTH_COOKIE_NAME, verifySessionToken } from "@/lib/auth";
 import { LoginForm } from "./login-form";
+import { LoginHero } from "./login-hero";
 
 export const dynamic = "force-dynamic";
 
@@ -27,34 +28,25 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const next = pickNext(searchParams?.next);
 
   return (
-    <div className="min-h-screen w-full bg-background flex flex-col">
-      <div className="flex-1 flex items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md space-y-8">
-          <div className="flex flex-col items-center text-center gap-4">
-            <Logo size={56} />
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.32em] text-muted-foreground">
-                {COMPANY.name}
-              </p>
-              <h1 className="font-serif text-3xl sm:text-4xl mt-2">
-                Sign in
-              </h1>
-              <p className="text-sm text-muted-foreground mt-2">
-                Concierge One Invoicing — staff access
+    <div className="min-h-[100dvh] w-full bg-background lg:grid lg:grid-cols-[1.1fr_1fr]">
+      <LoginHero />
+
+      <div className="relative -mt-8 flex justify-center px-4 pb-[calc(2rem+var(--safe-bottom))] lg:mt-0 lg:items-center lg:px-10 lg:py-12">
+        <FadeIn delay={0.15} className="w-full max-w-md">
+          <div className="luxury-card p-6 shadow-[0_24px_60px_-28px_rgba(15,23,42,0.4)] sm:p-8 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+            <div className="mb-6">
+              <p className="eyebrow">Staff access</p>
+              <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+                Welcome back
+              </h2>
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                Sign in to manage {COMPANY.name} invoices.
               </p>
             </div>
-          </div>
-
-          <div className="luxury-card p-6 sm:p-8">
             <LoginForm next={next} />
           </div>
-        </div>
+        </FadeIn>
       </div>
-      <footer className="border-t border-border/40 py-6 text-center text-xs text-muted-foreground">
-        <span className="serif tracking-widest uppercase">
-          {COMPANY.name}
-        </span>
-      </footer>
     </div>
   );
 }

@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, MapPin, Plus } from "lucide-react";
+import { MapPin, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/layout/page-shell";
+import { LoadError, PageHeader } from "@/components/layout/page-header";
 import { InvoiceTable } from "@/components/dashboard/invoice-table";
+import { Avatar, Stagger, StaggerItem } from "@/components/motion/primitives";
+import { FitText } from "@/components/ui/fit-text";
 import { getClientProfile } from "@/app/actions/clients";
 import { formatMoney, formatDate } from "@/lib/format";
 
@@ -52,95 +55,91 @@ export default async function ClientProfilePage({ params }: PageProps) {
 
   if (!loadError && !profile) notFound();
 
+  if (loadError || !profile) {
+    return (
+      <PageShell>
+        <PageHeader back={{ href: "/clients", label: "Clients" }} title="Client" />
+        <LoadError message={loadError ?? "Client not found"} />
+      </PageShell>
+    );
+  }
+
+  const { summary, invoices } = profile;
+  const newHref = prefillHref(summary.name, summary.address, summary.currency);
+
   return (
     <PageShell>
-      <Link
-        href="/clients"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        All clients
-      </Link>
-
-      {loadError ? (
-        <div className="luxury-card p-4 border-destructive/40 text-sm text-destructive mt-4">
-          {loadError}
-        </div>
-      ) : profile ? (
-        <>
-          <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-xs uppercase tracking-[0.25em] text-gold">
-                Client
-              </p>
-              <h1 className="font-serif text-4xl sm:text-5xl mt-1 break-words">
-                {profile.summary.name}
-              </h1>
-              {profile.summary.address ? (
-                <p className="mt-3 flex items-start gap-1.5 text-sm text-muted-foreground whitespace-pre-line">
-                  <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
-                  {profile.summary.address}
-                </p>
-              ) : null}
-            </div>
-            <Button asChild variant="gold" className="h-11 sm:h-9 shrink-0">
-              <Link
-                href={prefillHref(
-                  profile.summary.name,
-                  profile.summary.address,
-                  profile.summary.currency,
-                )}
-              >
-                <Plus className="h-4 w-4" />
-                New invoice
-              </Link>
-            </Button>
-          </div>
-
-          <div className="gold-divider my-6" aria-hidden="true" />
-
-          {/* Per-currency billing summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-            {profile.summary.totals.map((t) => (
-              <div key={t.currency} className="luxury-card p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs uppercase tracking-widest text-muted-foreground">
-                    {t.currency}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {t.count} invoice{t.count > 1 ? "s" : ""}
-                  </span>
-                </div>
-                <p className="mt-2 text-2xl font-semibold tabular-nums">
-                  {formatMoney(t.billed, t.currency)}
-                </p>
-                <div className="mt-2 flex items-center gap-3 text-xs">
-                  <span className="text-emerald-600">
-                    {formatMoney(t.paid, t.currency)} paid
-                  </span>
-                  {t.outstanding > 0 ? (
-                    <span className="text-amber-600">
-                      {formatMoney(t.outstanding, t.currency)} due
-                    </span>
-                  ) : (
-                    <span className="text-muted-foreground">Settled</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="font-serif text-2xl">Invoices</h2>
-            <span className="text-sm text-muted-foreground">
-              {profile.summary.firstDate
-                ? `Since ${formatDate(profile.summary.firstDate)}`
-                : null}
+      <PageHeader
+        back={{ href: "/clients", label: "Clients" }}
+        eyebrow={
+          summary.firstDate ? `Client since ${formatDate(summary.firstDate)}` : "Client"
+        }
+        title={
+          <span className="flex items-center gap-4">
+            <Avatar name={summary.name} size={52} className="hidden sm:inline-flex" />
+            {summary.name}
+          </span>
+        }
+        description={
+          summary.address ? (
+            <span className="flex items-start gap-1.5 whitespace-pre-line">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+              {summary.address}
             </span>
-          </div>
-          <InvoiceTable invoices={profile.invoices} />
-        </>
-      ) : null}
+          ) : undefined
+        }
+        actions={
+          <Button asChild variant="gold" size="lg" className="w-full md:w-auto">
+            <Link href={newHref}>
+              <Plus />
+              New invoice
+            </Link>
+          </Button>
+        }
+      />
+
+      {/* Per-currency billing summary */}
+      <Stagger step={0.06} className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {summary.totals.map((t) => {
+          const paidRatio = t.billed > 0 ? Math.min(1, t.paid / t.billed) : 0;
+          return (
+            <StaggerItem key={t.currency} className="luxury-card p-5">
+              <div className="flex items-center justify-between">
+                <span className="eyebrow">{t.currency}</span>
+                <span className="text-xs text-muted-foreground">
+                  {t.count} invoice{t.count > 1 ? "s" : ""}
+                </span>
+              </div>
+              <FitText
+                text={formatMoney(t.billed, t.currency)}
+                className="mt-3 text-2xl font-semibold leading-tight tracking-tight tabular-nums"
+              />
+              <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-secondary">
+                <div
+                  className="h-full rounded-full bg-emerald-500"
+                  style={{ width: `${paidRatio * 100}%` }}
+                />
+              </div>
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
+                <span className="text-emerald-600">{formatMoney(t.paid, t.currency)} paid</span>
+                {t.outstanding > 0 ? (
+                  <span className="font-medium text-amber-600">
+                    {formatMoney(t.outstanding, t.currency)} due
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Settled</span>
+                )}
+              </div>
+            </StaggerItem>
+          );
+        })}
+      </Stagger>
+
+      <div className="mb-3 flex items-baseline justify-between">
+        <h2 className="text-lg font-semibold tracking-tight">Invoices</h2>
+        <span className="text-xs tabular-nums text-muted-foreground">{invoices.length}</span>
+      </div>
+      <InvoiceTable invoices={invoices} />
     </PageShell>
   );
 }

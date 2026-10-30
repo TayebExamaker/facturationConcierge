@@ -19,7 +19,7 @@ export function LoginForm({ next }: { next: string }) {
       <input type="hidden" name="next" value={next} />
 
       <div className="space-y-1.5">
-        <Label htmlFor="email" className="text-xs uppercase tracking-widest text-muted-foreground">
+        <Label htmlFor="email" className="eyebrow">
           Email
         </Label>
         <Input
@@ -30,12 +30,12 @@ export function LoginForm({ next }: { next: string }) {
           required
           inputMode="email"
           placeholder="you@example.com"
-          className="h-11"
+          className="h-12"
         />
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="password" className="text-xs uppercase tracking-widest text-muted-foreground">
+        <Label htmlFor="password" className="eyebrow">
           Password
         </Label>
         <Input
@@ -45,14 +45,14 @@ export function LoginForm({ next }: { next: string }) {
           autoComplete="current-password"
           required
           placeholder="••••••••"
-          className="h-11"
+          className="h-12"
         />
       </div>
 
       {state.error ? (
         <p
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+          className="rounded-xl border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive"
         >
           {state.error}
         </p>
@@ -74,7 +74,8 @@ function SubmitButton() {
       type="submit"
       variant="gold"
       disabled={pending}
-      className="h-11 w-full"
+      size="lg"
+      className="w-full"
     >
       {pending ? (
         <Loader2 className="h-4 w-4 animate-spin" />

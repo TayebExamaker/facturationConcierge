@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { motion } from "motion/react";
 import { Plus, Trash2 } from "lucide-react";
 import {
   useFieldArray,
@@ -96,7 +97,7 @@ export function LineItems({ control, register, watch, className }: LineItemsProp
   return (
     <div className={cn("space-y-3", className)}>
       {isDesktop ? (
-        <div className="overflow-x-auto luxury-card">
+        <div className="overflow-x-auto rounded-2xl border border-border/70">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -138,7 +139,7 @@ export function LineItems({ control, register, watch, className }: LineItemsProp
       ) : (
         <div className="space-y-3">
           {isEmpty ? (
-            <div className="luxury-card p-6 text-center text-sm text-muted-foreground">
+            <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
               No line items yet — tap{" "}
               <span className="text-foreground">Add row</span>.
             </div>
@@ -162,7 +163,7 @@ export function LineItems({ control, register, watch, className }: LineItemsProp
           type="button"
           variant="outline"
           onClick={handleAdd}
-          className="h-11 sm:h-9 w-full sm:w-auto"
+          className="h-12 w-full rounded-2xl border-dashed sm:h-10 sm:w-auto sm:rounded-xl"
         >
           <Plus className="h-4 w-4" />
           Add row
@@ -202,10 +203,18 @@ function MobileLineCard({
   onRemove,
 }: LineRowProps) {
   return (
-    <div className="luxury-card p-4 space-y-3">
+    <motion.div
+      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: "spring", stiffness: 420, damping: 34 }}
+      className="space-y-3 rounded-2xl border border-border/70 bg-secondary/30 p-4"
+    >
       <div className="flex items-start justify-between gap-2">
-        <span className="text-xs uppercase tracking-widest text-muted-foreground">
-          Item {index + 1}
+        <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-card text-[11px] font-semibold text-foreground ring-1 ring-border">
+            {index + 1}
+          </span>
+          Item
         </span>
         <Button
           type="button"
@@ -260,13 +269,13 @@ function MobileLineCard({
           />
         </div>
       </div>
-      <div className="flex items-center justify-between pt-2 border-t border-border">
+      <div className="flex items-center justify-between border-t border-border/70 pt-3">
         <span className="text-xs uppercase tracking-widest text-muted-foreground">
           Amount
         </span>
         <LineAmount index={index} control={control} currency={currency} />
       </div>
-    </div>
+    </motion.div>
   );
 }
 

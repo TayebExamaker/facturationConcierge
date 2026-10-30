@@ -1,4 +1,5 @@
 import { PageShell } from "@/components/layout/page-shell";
+import { PageHeader } from "@/components/layout/page-header";
 import { getPaymentInstructions } from "@/app/actions/settings";
 import InvoiceFormIsland from "./_form-island";
 
@@ -39,16 +40,12 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
 
   return (
     <PageShell>
-      <div className="mb-6">
-        <p className="text-xs uppercase tracking-[0.25em] text-gold">
-          Concierge One
-        </p>
-        <h1 className="font-serif text-4xl sm:text-5xl mt-1">New Invoice</h1>
-        <p className="text-sm text-muted-foreground mt-2 max-w-prose">
-          Compose a new invoice. Totals are computed automatically as you edit.
-        </p>
-      </div>
-      <div className="gold-divider mb-6" aria-hidden="true" />
+      <PageHeader
+        className="mx-auto max-w-4xl"
+        eyebrow="Create"
+        title="New Invoice"
+        description="Totals are computed automatically as you type."
+      />
 
       <InvoiceFormIsland
         prefill={prefill}

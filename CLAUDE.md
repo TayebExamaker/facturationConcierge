@@ -17,22 +17,32 @@ Stack 100 % installable (Windows / Mac / iOS via Safari).
 
 ## Design system
 
-Light theme, sobre, accents noirs (inspiration invoice-generator.com).
+Light theme, sobre, accents noirs — refonte "app native" (motion partout, mobile-first).
 
-- **Background** : blanc (`#FFFFFF`)
+- **Canvas** : off-white `#F7F8FA` (`--background`), surfaces blanches (`--card`)
 - **Foreground / Accent** : slate-900 (`#0F172A`)
-- **Bordures** : slate-200 (`#E2E8F0`)
-- **Muted text** : slate-500 (`#64748B`)
-- **Typo** : Poppins partout (sans + serif aliasés)
-- **Card** : classe utilitaire `.luxury-card` (fond blanc, bordure slate-200, ombre douce)
-- **Variant bouton noir** : `<Button variant="gold">` (héritage du token, rendu en `bg-foreground text-background`)
-- **Bandeaux noirs** : header de tableau ligne items utilise `bg-navy-900 text-white`
+- **Rayons** : `--radius` 0.875rem ; cartes `rounded-2xl`, hero `rounded-3xl`
+- **Typo** : Poppins partout (sans + serif aliasés) ; titres de page via `<PageHeader>` (large title iOS)
+- **Card** : `.luxury-card` (blanc, bordure hairline, ombre douce) ; `.ink-card` (hero noir, ex. KPI "Outstanding") ; `.eyebrow` (micro-label uppercase)
+- **Variant bouton noir** : `<Button variant="gold">` (héritage du token, rendu en `bg-foreground text-background`) ; tous les boutons ont un `active:scale` de feedback
+- **Statuts** : teintes douces sémantiques (`STATUS_TONE` dans `components/invoice/status-pill.tsx`) — draft slate, sent sky, paid emerald, overdue rose
+- **Bandeaux noirs** : header de tableau ligne items (preview/PDF) utilise `bg-navy-900 text-white`
+
+### Shell & motion
+
+- **`motion`** (`motion/react`, ex framer-motion) pour toutes les animations. `MotionConfig reducedMotion="user"` dans `AppChrome`.
+- **`components/layout/app-chrome.tsx`** : shell persistant monté dans `app/layout.tsx` — sidebar desktop (lg+), top bar + **tab bar flottante** mobile (< lg). `/login` et `/offline` sont rendus sans chrome.
+- **`useImmersive()`** : masque la tab bar tant que le composant est monté (utilisé par `InvoiceForm`, qui a sa propre barre d'action fixe).
+- **`components/layout/page-shell.tsx`** : conteneur + transition d'entrée de page (rejouée à chaque navigation via `app/template.tsx`). **`page-header.tsx`** : `PageHeader` (eyebrow / title / badge / actions / back) + `LoadError`.
+- **`components/motion/`** : `primitives.tsx` (springs `SPRING_*`, `FadeIn`, `Stagger`/`StaggerItem`, `Avatar` initiales), `number-ticker.tsx` (compteur animé, 21st.dev).
+- **`components/ui/bottom-sheet.tsx`** : sheet glissable (21st.dev BeUI) + `SheetAction` — à utiliser sur mobile à la place des dropdowns/popovers. `Dialog` s'affiche lui-même en bottom sheet sur mobile.
+- Safe areas : `viewportFit: "cover"` + utilitaires `.pt-safe`, `.pb-safe`, `.pb-tabbar`, `.pb-actionbar` (variables `--safe-*`, `--tabbar-height`, `--sidebar-width`).
 
 ## Conventions & ownership
 
 | Domaine | Dossiers / fichiers |
 |---|---|
-| **FRONT** (UI) | `app/(routes)/`, `components/ui/`, `components/dashboard/`, `components/invoice/`, `components/import/`, `components/layout/`, `components/brand/` |
+| **FRONT** (UI) | `app/(routes)/`, `components/ui/`, `components/dashboard/`, `components/invoice/`, `components/import/`, `components/layout/`, `components/brand/`, `components/motion/` |
 | **BACK** (DB + actions + PDF/CSV) | `supabase/migrations/`, `lib/supabase/`, `app/actions/`, `lib/pdf/`, `lib/csv/`, `lib/currencies.ts` |
 | **INFRA** (PWA) | `public/manifest.json`, `public/icons/`, `scripts/generate-icons.mjs`, `components/pwa/`, `app/offline/`, `app/template.tsx`, `app/install-prompt-mount.tsx` |
 | **QA** (validation, errors, helpers) | `lib/validation/`, `lib/format.ts`, `lib/dedupe.ts`, `lib/errors.ts`, `lib/responsive.ts`, `hooks/`, `components/error-boundary.tsx`, `components/import/manual-entry-fallback.tsx` |

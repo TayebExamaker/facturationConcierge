@@ -256,12 +256,12 @@ export function TotalsSummary({
 
       {/* Add chips */}
       {!showDiscount || !showShipping || !showPaid ? (
-        <div className="flex items-center gap-4 -mt-1">
+        <div className="-mt-1 flex flex-wrap items-center gap-2">
           {!showDiscount ? (
             <button
               type="button"
               onClick={() => setShowDiscount(true)}
-              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-full border border-dashed border-border px-3 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
             >
               <Plus className="h-3.5 w-3.5" />
               Discount
@@ -271,7 +271,7 @@ export function TotalsSummary({
             <button
               type="button"
               onClick={() => setShowShipping(true)}
-              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-full border border-dashed border-border px-3 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
             >
               <Plus className="h-3.5 w-3.5" />
               Shipping
@@ -281,7 +281,7 @@ export function TotalsSummary({
             <button
               type="button"
               onClick={() => setShowPaid(true)}
-              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-full border border-dashed border-border px-3 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
             >
               <Plus className="h-3.5 w-3.5" />
               Amount paid

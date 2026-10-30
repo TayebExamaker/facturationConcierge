@@ -4,13 +4,26 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useWatch } from "react-hook-form";
-import { Download, Eye, Loader2, Save, Sparkles, X } from "lucide-react";
+import { useForm, useWatch, type Control } from "react-hook-form";
+import { AnimatePresence, motion } from "motion/react";
+import {
+  Download,
+  Eye,
+  Hash,
+  Landmark,
+  ListOrdered,
+  Loader2,
+  RotateCcw,
+  Save,
+  Sparkles,
+  StickyNote,
+  UserRound,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -32,7 +45,10 @@ import {
   TotalsSummary,
   computeTotals,
 } from "@/components/invoice/totals-summary";
+import { useImmersive } from "@/components/layout/app-chrome";
+import { FadeIn, SPRING_PANEL } from "@/components/motion/primitives";
 import { COMPANY, PAYMENT_BLOCK } from "@/lib/company";
+import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { invoiceFormSchema } from "@/lib/validation/invoice";
 import {
@@ -95,6 +111,8 @@ export function InvoiceForm({
   className,
 }: InvoiceFormProps) {
   const router = useRouter();
+  // Full-screen editor on phones: hide the tab bar, show our own action bar.
+  useImmersive();
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState<null | "draft" | "preview" | "pdf">(null);
   const [autoFilling, setAutoFilling] = React.useState(false);
@@ -358,48 +376,48 @@ export function InvoiceForm({
 
   return (
     <form
-      className={cn("space-y-6 pb-32", className)}
+      className={cn("mx-auto max-w-4xl space-y-4 sm:space-y-5", className)}
       onSubmit={(e) => e.preventDefault()}
     >
-      {/* PDF prefill — visible only when creating a new invoice. */}
-      {!invoiceId ? (
-        <div className="flex items-center justify-end">
-          <PrefillFromPdf setValue={setValue} />
-        </div>
-      ) : null}
-
-      {/* Company header card */}
-      <Card className="luxury-card">
-        <CardHeader className="flex flex-row items-start justify-between gap-6 pb-6">
-          <div className="flex items-start gap-4">
-            <Logo size={56} />
-            <div className="space-y-1">
-              <CardTitle className="text-lg leading-tight">
+      {/* Document header — brand + live invoice number. */}
+      <FormSection delay={0}>
+        <div className="flex items-center justify-between gap-4 p-4 sm:p-6">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+            <Logo size={44} className="sm:hidden" />
+            <Logo size={56} className="hidden sm:flex" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold leading-tight sm:text-base">
                 {COMPANY.name}
-              </CardTitle>
-              <div className="text-xs text-muted-foreground leading-relaxed">
+              </p>
+              <div className="mt-0.5 hidden text-xs leading-relaxed text-muted-foreground sm:block">
                 {COMPANY.addressLines.map((l) => (
                   <div key={l}>{l}</div>
                 ))}
               </div>
             </div>
           </div>
-          <div className="text-right shrink-0">
-            <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-              {invoiceId ? "Edit Invoice" : "New Invoice"}
-            </div>
-            <div className="mt-2 text-3xl font-semibold tabular-nums leading-none">
+          <div className="shrink-0 text-right">
+            <p className="eyebrow">{invoiceId ? "Editing" : "New invoice"}</p>
+            <p className="mt-1 text-2xl font-semibold leading-none tracking-tight tabular-nums sm:text-3xl">
               {typeof invoiceNumberWatched === "number" && invoiceNumberWatched > 0
                 ? `#${invoiceNumberWatched}`
                 : <span className="text-muted-foreground">#—</span>}
-            </div>
+            </p>
           </div>
-        </CardHeader>
-      </Card>
+        </div>
+        {!invoiceId ? (
+          <div className="flex items-center justify-between gap-3 rounded-b-2xl border-t border-border/60 bg-secondary/40 px-4 py-3 sm:px-6">
+            <p className="text-xs text-muted-foreground">
+              Have a PDF? Pre-fill this form from it.
+            </p>
+            <PrefillFromPdf setValue={setValue} />
+          </div>
+        ) : null}
+      </FormSection>
 
       {/* Meta row */}
-      <Card className="luxury-card">
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-6">
+      <FormSection icon={<Hash />} title="Details" delay={0.04}>
+        <div className="grid grid-cols-2 gap-3 p-4 pt-0 sm:gap-4 sm:p-6 sm:pt-0 lg:grid-cols-4">
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label htmlFor="invoice_number">Invoice #</Label>
@@ -407,10 +425,15 @@ export function InvoiceForm({
                 type="button"
                 onClick={handleAutofillNumber}
                 disabled={autoFilling}
-                className="text-[11px] uppercase tracking-widest text-gold hover:text-gold-400 disabled:opacity-50 flex items-center gap-1"
+                aria-label="Auto-fill next invoice number"
+                className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50"
               >
-                <Sparkles className="h-3 w-3" />
-                Auto-fill next
+                {autoFilling ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3 w-3" />
+                )}
+                <span className="hidden sm:inline">Next</span>
               </button>
             </div>
             <Input
@@ -425,11 +448,7 @@ export function InvoiceForm({
 
           <div className="space-y-1.5">
             <Label htmlFor="date">Date</Label>
-            <Input
-              id="date"
-              type="date"
-              {...register("date" as never)}
-            />
+            <Input id="date" type="date" {...register("date" as never)} />
           </div>
 
           <div className="space-y-1.5">
@@ -449,15 +468,12 @@ export function InvoiceForm({
               {...register("po_number" as never)}
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </FormSection>
 
       {/* Client card */}
-      <Card className="luxury-card">
-        <CardHeader>
-          <CardTitle className="text-lg">Bill To</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <FormSection icon={<UserRound />} title="Bill To" delay={0.08}>
+        <div className="grid grid-cols-1 gap-4 p-4 pt-0 sm:p-6 sm:pt-0 lg:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="client_name">Client</Label>
             <Input
@@ -476,7 +492,8 @@ export function InvoiceForm({
               ))}
             </datalist>
             {!invoiceId && knownClients.length > 0 ? (
-              <p className="text-[11px] text-muted-foreground">
+              <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Sparkles className="h-3 w-3 shrink-0" />
                 Astuce : choisissez un client connu pour remplir son adresse
                 automatiquement.
               </p>
@@ -492,14 +509,16 @@ export function InvoiceForm({
               {...register("client_address" as never)}
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </FormSection>
 
       {/* Currency + Line Items */}
-      <Card className="luxury-card">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">Line Items</CardTitle>
-          <div className="w-56">
+      <FormSection
+        icon={<ListOrdered />}
+        title="Line Items"
+        delay={0.12}
+        aside={
+          <div className="w-32 sm:w-56">
             <CurrencySelect
               id="currency"
               value={currencyWatched}
@@ -510,38 +529,40 @@ export function InvoiceForm({
               }
             />
           </div>
-        </CardHeader>
-        <CardContent>
+        }
+      >
+        <div className="p-4 pt-0 sm:p-6 sm:pt-0">
           <LineItems control={control} register={register} watch={watch} />
-        </CardContent>
-      </Card>
+        </div>
+      </FormSection>
 
       {/* Totals */}
-      <TotalsSummary
-        register={register}
-        control={control}
-        setValue={setValue}
-      />
+      <FadeIn delay={0.16}>
+        <TotalsSummary
+          register={register}
+          control={control}
+          setValue={setValue}
+        />
+      </FadeIn>
 
       {/* Notes */}
-      <Card className="luxury-card">
-        <CardHeader>
-          <CardTitle className="text-lg">Notes</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <FormSection icon={<StickyNote />} title="Notes" delay={0.2}>
+        <div className="p-4 pt-0 sm:p-6 sm:pt-0">
           <Textarea
             placeholder="Optional notes shown on the invoice (e.g. project reference)…"
             rows={4}
             {...register("notes" as never)}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </FormSection>
 
       {/* Payment instructions — defaults to the global block from /settings,
           overridable per invoice (an edit here only affects this invoice). */}
-      <Card className="luxury-card">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">Payment Instructions</CardTitle>
+      <FormSection
+        icon={<Landmark />}
+        title="Payment Instructions"
+        delay={0.24}
+        aside={
           <button
             type="button"
             onClick={() =>
@@ -549,63 +570,86 @@ export function InvoiceForm({
                 shouldDirty: true,
               })
             }
-            className="text-[11px] uppercase tracking-widest text-gold hover:text-gold-400 flex items-center gap-1"
+            className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
-            <Sparkles className="h-3 w-3" />
+            <RotateCcw className="h-3 w-3" />
             Reset to default
           </button>
-        </CardHeader>
-        <CardContent className="space-y-2">
+        }
+      >
+        <div className="space-y-2 p-4 pt-0 sm:p-6 sm:pt-0">
           <Textarea
             placeholder="Card paiement, bank details, crypto…"
-            rows={18}
-            className="font-mono text-xs leading-relaxed"
+            rows={14}
+            className="font-mono text-xs leading-relaxed sm:text-xs"
             {...register("payment_instructions" as never)}
           />
           <p className="text-[11px] text-muted-foreground">
             Shown in the “Payment Information” section of the preview and PDF.
             Lines that end with “:” render as section headings in the PDF.
-          </p>
-          <p className="text-[11px] text-muted-foreground">
-            Editing here overrides this invoice only. To change the bank details
-            on every invoice, use{" "}
-            <Link href="/settings" className="text-gold hover:underline">
+            Editing here overrides this invoice only — to change the bank
+            details on every invoice, use{" "}
+            <Link
+              href="/settings"
+              className="font-medium text-foreground underline-offset-2 hover:underline"
+            >
               Settings → Payment Details
             </Link>
             .
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </FormSection>
 
       {/* Validation summary */}
-      {formErrorList.length > 0 ? (
-        <div className="luxury-card p-4 border-destructive/40 text-sm text-destructive space-y-1">
-          <div className="font-medium">Please fix the following:</div>
-          <ul className="list-disc pl-5">
-            {formErrorList.map(([field, err]) => (
-              <li key={field}>
-                <span className="font-mono text-xs">{field}</span> —{" "}
-                {(err as { message?: string })?.message || "Invalid value"}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      <AnimatePresence>
+        {formErrorList.length > 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            role="alert"
+            className="space-y-1 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+          >
+            <div className="font-medium">Please fix the following:</div>
+            <ul className="list-disc pl-5">
+              {formErrorList.map(([field, err]) => (
+                <li key={field}>
+                  <span className="font-mono text-xs">{field}</span> —{" "}
+                  {(err as { message?: string })?.message || "Invalid value"}
+                </li>
+              ))}
+            </ul>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
-      {/* Sticky footer — grid on phone (2 rows of 2), inline on desktop. */}
-      <div className="no-print fixed bottom-0 inset-x-0 z-30 border-t border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="container py-3">
-          <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end gap-2">
+      {/* Fixed action bar — the form is "immersive": the tab bar is hidden. */}
+      <motion.div
+        initial={{ y: 80, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ ...SPRING_PANEL, delay: 0.15 }}
+        className="no-print fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-card/85 pb-safe shadow-[0_-12px_40px_-24px_rgba(15,23,42,0.35)] backdrop-blur-xl backdrop-saturate-150 lg:left-[var(--sidebar-width)]"
+      >
+        <div className="container max-w-4xl py-3">
+          <div className="mb-2.5 flex items-baseline justify-between px-1 sm:hidden">
+            <span className="eyebrow">Total</span>
+            <LiveTotal control={control} currency={currencyWatched} className="min-w-0 truncate text-base" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="mr-auto hidden min-w-0 sm:block">
+              <p className="eyebrow">Total</p>
+              <LiveTotal control={control} currency={currencyWatched} className="truncate text-lg" />
+            </div>
+
             <Button
               type="button"
               variant="ghost"
               asChild
-              disabled={submitting !== null}
-              className="h-11 sm:h-9"
+              className="h-12 w-12 shrink-0 rounded-2xl px-0 sm:h-10 sm:w-auto sm:px-3"
             >
-              <Link href="/dashboard">
-                <X className="h-4 w-4" />
-                Cancel
+              <Link href={invoiceId ? `/invoices/${invoiceId}` : "/dashboard"} aria-label="Cancel">
+                <X />
+                <span className="hidden sm:inline">Cancel</span>
               </Link>
             </Button>
             <Button
@@ -613,62 +657,106 @@ export function InvoiceForm({
               variant="outline"
               onClick={onSaveDraft}
               disabled={submitting !== null}
-              className="h-11 sm:h-9"
+              aria-label="Save draft"
+              className="h-12 w-12 shrink-0 rounded-2xl px-0 sm:h-10 sm:w-auto sm:px-4"
             >
-              {submitting === "draft" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              <span className="sm:hidden">Draft</span>
+              {submitting === "draft" ? <Loader2 className="animate-spin" /> : <Save />}
               <span className="hidden sm:inline">Save Draft</span>
             </Button>
             <Button
               type="button"
-              variant="secondary"
+              variant="outline"
               onClick={onSaveAndPreview}
               disabled={submitting !== null}
-              className="h-11 sm:h-9"
+              aria-label="Save and preview"
+              className="h-12 w-12 shrink-0 rounded-2xl px-0 sm:h-10 sm:w-auto sm:px-4"
             >
-              {submitting === "preview" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-              <span className="sm:hidden">Preview</span>
-              <span className="hidden sm:inline">Save & Preview</span>
+              {submitting === "preview" ? <Loader2 className="animate-spin" /> : <Eye />}
+              <span className="hidden sm:inline">Preview</span>
             </Button>
             <Button
               type="button"
               variant="gold"
               onClick={onSaveAndDownload}
               disabled={submitting !== null}
-              className="h-11 sm:h-9"
+              className="h-12 min-w-0 flex-1 rounded-2xl px-4 sm:h-10 sm:flex-none"
             >
-              {submitting === "pdf" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              <span className="sm:hidden">PDF</span>
-              <span className="hidden sm:inline">Save & Download PDF</span>
+              {submitting === "pdf" ? <Loader2 className="animate-spin" /> : <Download />}
+              <span className="sm:hidden">Save &amp; PDF</span>
+              <span className="hidden sm:inline">Save &amp; Download PDF</span>
             </Button>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Preview dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto p-0">
-          <DialogHeader className="px-6 pt-6">
+        <DialogContent className="p-0 pt-6 sm:max-w-4xl sm:p-0">
+          <DialogHeader className="px-5 sm:px-6 sm:pt-6">
             <DialogTitle>Invoice Preview</DialogTitle>
           </DialogHeader>
-          <div className="p-6 pt-2">
+          <div className="p-3 pt-0 sm:p-6 sm:pt-0">
             <InvoicePreview invoice={getValues() as never} />
           </div>
         </DialogContent>
       </Dialog>
     </form>
+  );
+}
+
+/** Card section with an icon header; fades up on mount. */
+function FormSection({
+  icon,
+  title,
+  aside,
+  delay = 0,
+  children,
+}: {
+  icon?: React.ReactNode;
+  title?: string;
+  aside?: React.ReactNode;
+  delay?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <FadeIn delay={delay} className="luxury-card">
+      {title ? (
+        <div className="flex items-center justify-between gap-3 p-4 sm:px-6 sm:py-5">
+          <div className="flex min-w-0 items-center gap-2.5">
+            {icon ? (
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-secondary text-foreground [&_svg]:h-4 [&_svg]:w-4">
+                {icon}
+              </span>
+            ) : null}
+            <h2 className="truncate text-base font-semibold tracking-tight">{title}</h2>
+          </div>
+          {aside}
+        </div>
+      ) : null}
+      {children}
+    </FadeIn>
+  );
+}
+
+/**
+ * Live grand total. Owns its own form-wide useWatch so typing re-renders only
+ * this <span>, never the inputs (see the scoped-useWatch note above).
+ */
+function LiveTotal({
+  control,
+  currency,
+  className,
+}: {
+  control: Control<InvoiceFormShape>;
+  currency: string;
+  className?: string;
+}) {
+  const values = useWatch({ control }) as unknown as Parameters<typeof computeTotals>[0];
+  const { total } = computeTotals(values ?? {});
+  return (
+    <span className={cn("block font-semibold tabular-nums", className)}>
+      {formatMoney(total, currency)}
+    </span>
   );
 }
 

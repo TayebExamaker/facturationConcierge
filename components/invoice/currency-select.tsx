@@ -60,11 +60,13 @@ export function CurrencySelect({
           className={cn("w-full justify-between font-normal", className)}
         >
           {selected ? (
-            <span className="flex items-center gap-2">
-              <span className="font-mono text-xs uppercase tracking-wider">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="shrink-0 font-mono text-xs uppercase tracking-wider">
                 {selected.code}
               </span>
-              <span className="text-muted-foreground">— {selected.name}</span>
+              <span className="hidden truncate text-muted-foreground sm:inline">
+                — {selected.name}
+              </span>
             </span>
           ) : (
             <span className="text-muted-foreground">Select currency…</span>

@@ -42,7 +42,7 @@ export function Logo({
 
       {withWordmark ? (
         <div className="flex flex-col leading-tight">
-          <span className="text-base sm:text-lg font-semibold uppercase tracking-[0.18em] text-foreground">
+          <span className="whitespace-nowrap text-base sm:text-lg font-semibold uppercase tracking-[0.18em] text-foreground">
             Concierge One
           </span>
           <span className="text-[10px] uppercase tracking-[0.32em] text-muted-foreground">

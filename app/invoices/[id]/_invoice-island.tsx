@@ -7,18 +7,23 @@ import { InvoicePreview } from "@/components/invoice/invoice-preview";
 import type { Invoice } from "@/lib/supabase/types";
 
 const formSkeleton = (
-  <div className="luxury-card p-8 animate-pulse">
-    <div className="h-6 w-48 rounded bg-muted/60" />
-    <div className="mt-4 h-32 rounded-md bg-muted/30" />
+  <div className="luxury-card animate-pulse p-8">
+    <div className="h-6 w-48 rounded-lg bg-secondary" />
+    <div className="mt-4 h-32 rounded-xl bg-secondary/60" />
   </div>
 );
 
-const actionsSkeleton = <div className="h-10 w-64 rounded bg-muted/30 animate-pulse" />;
+const actionsSkeleton = (
+  <div className="flex flex-col gap-3 xl:items-end">
+    <div className="h-12 w-full animate-pulse rounded-2xl bg-secondary md:w-[26rem]" />
+    <div className="h-16 w-full animate-pulse rounded-2xl bg-secondary md:h-10 md:w-80" />
+  </div>
+);
 
 const previewSkeleton = (
-  <div className="luxury-card p-8 animate-pulse">
-    <div className="h-8 w-64 rounded bg-muted/40" />
-    <div className="mt-6 h-40 rounded bg-muted/30" />
+  <div className="luxury-card animate-pulse p-8">
+    <div className="h-8 w-64 rounded-lg bg-secondary" />
+    <div className="mt-6 h-40 rounded-xl bg-secondary/60" />
   </div>
 );
 

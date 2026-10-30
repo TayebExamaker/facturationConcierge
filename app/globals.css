@@ -4,8 +4,8 @@
 
 @layer base {
   :root {
-    /* Light palette — white surfaces, near-black ink, black accent */
-    --background: 0 0% 100%;            /* #FFFFFF */
+    /* Light palette — off-white app canvas, white surfaces, near-black ink. */
+    --background: 220 20% 97.5%;        /* #F7F8FA — app canvas */
     --foreground: 222 47% 11%;          /* #0F172A — slate-900 */
 
     --card: 0 0% 100%;
@@ -14,26 +14,32 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 222 47% 11%;             /* black-ish */
+    --primary: 222 47% 11%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 17% 96%;           /* #F1F5F9 — slate-100 */
+    --secondary: 220 16% 94%;           /* soft fill for chips / ghost hovers */
     --secondary-foreground: 222 47% 11%;
 
-    --muted: 210 17% 96%;
+    --muted: 220 16% 94%;
     --muted-foreground: 215 16% 47%;    /* slate-500 */
 
     --accent: 222 47% 11%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 75% 50%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 32% 91%;              /* slate-200 */
-    --input: 214 32% 91%;
+    --border: 220 14% 90%;
+    --input: 220 14% 88%;
     --ring: 222 47% 11%;
 
-    --radius: 0.5rem;
+    --radius: 0.875rem;
+
+    /* Chrome metrics — shared by the shell, sticky bars and sheets. */
+    --sidebar-width: 17rem;
+    --tabbar-height: 4.25rem;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
 
     --font-sans: "Poppins", "Inter", "Helvetica Neue", system-ui, sans-serif;
     --font-serif: "Poppins", "Inter", system-ui, sans-serif;
@@ -43,27 +49,55 @@
 @layer base {
   * { @apply border-border; }
   html, body { @apply bg-background text-foreground; }
+  html { -webkit-tap-highlight-color: transparent; }
   body {
     font-family: var(--font-sans);
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
-  h1, h2, h3 { font-family: var(--font-sans); letter-spacing: -0.01em; font-weight: 600; }
+  h1, h2, h3 { font-family: var(--font-sans); letter-spacing: -0.02em; font-weight: 600; }
+  button, a, [role="button"] { touch-action: manipulation; }
+  ::selection { background: hsl(222 47% 11% / 0.12); }
 }
 
 @layer components {
-  /* Repurposed: was gold-on-navy, now a thin neutral divider. */
+  /* Thin neutral divider (legacy name kept for existing call sites). */
   .gold-divider {
-    background: linear-gradient(90deg, transparent 0%, rgba(15, 23, 42, 0.18) 50%, transparent 100%);
+    background: linear-gradient(90deg, transparent 0%, rgba(15, 23, 42, 0.14) 50%, transparent 100%);
     height: 1px;
   }
-  /* Repurposed: was gold accent text, now subtle dark accent. */
   .gold-text { color: #0F172A; }
 
-  /* Clean white card with subtle slate-200 border and soft shadow. */
+  /* White surface card: hairline border + layered soft shadow. */
   .luxury-card {
-    @apply bg-card border border-border/80 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.10)];
+    @apply bg-card border border-border/70 rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-18px_rgba(15,23,42,0.18)];
   }
+
+  /* Dark "ink" hero surface with a soft highlight. */
+  .ink-card {
+    @apply relative overflow-hidden rounded-3xl bg-foreground text-white;
+    background-image:
+      radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, 0.14) 0%, transparent 55%),
+      radial-gradient(80% 60% at 0% 100%, rgba(148, 163, 184, 0.18) 0%, transparent 60%);
+  }
+
+  /* Uppercase micro-label used above fields and stats. */
+  .eyebrow {
+    @apply text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+
+  .pt-safe { padding-top: var(--safe-top); }
+  .pb-safe { padding-bottom: var(--safe-bottom); }
+  /* Room for the floating mobile tab bar (+ breathing space). */
+  .pb-tabbar { padding-bottom: calc(var(--tabbar-height) + var(--safe-bottom) + 2rem); }
+  /* Room for a fixed bottom action bar on immersive (form) screens. */
+  .pb-actionbar { padding-bottom: calc(8.5rem + var(--safe-bottom)); }
 }
 
 /* Print: minimal chrome, keep invoice readable. */

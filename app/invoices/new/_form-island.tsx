@@ -4,11 +4,10 @@ import ClientOnly from "@/components/client-only";
 import { InvoiceForm } from "@/components/invoice/invoice-form";
 
 const Skeleton = (
-  <div className="luxury-card p-8 animate-pulse">
-    <div className="h-6 w-48 rounded bg-muted/60" />
-    <div className="mt-4 h-4 w-72 rounded bg-muted/40" />
-    <div className="mt-10 h-32 rounded-md bg-muted/30" />
-    <div className="mt-4 h-32 rounded-md bg-muted/30" />
+  <div className="mx-auto max-w-4xl space-y-4">
+    {[96, 160, 140, 200].map((h, i) => (
+      <div key={i} className="luxury-card animate-pulse" style={{ height: h }} />
+    ))}
   </div>
 );
 

@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import ToasterIsland from "./_toaster-island";
 import ClientOnly from "@/components/client-only";
+import { AppChrome } from "@/components/layout/app-chrome";
+import { AppSplash } from "@/components/layout/app-splash";
 
 export const metadata: Metadata = {
   title: "Concierge One Invoicing",
@@ -26,11 +28,13 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#FFFFFF",
+  themeColor: "#F7F8FA",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  // Draw under the notch / home indicator; chrome pads with env(safe-area-*).
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -56,8 +60,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen antialiased" suppressHydrationWarning>
         {/* L'intégralité du body est rendu côté client après mount —
-            aucune surface SSR/CSR à reconcilier. */}
-        <ClientOnly>{children}</ClientOnly>
+            aucune surface SSR/CSR à reconcilier. AppChrome = sidebar /
+            tab bar persistantes entre les navigations. */}
+        <ClientOnly fallback={<AppSplash />}>
+          <AppChrome>{children}</AppChrome>
+        </ClientOnly>
         <ToasterIsland />
       </body>
     </html>

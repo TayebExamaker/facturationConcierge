@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Download, X, Share } from "lucide-react";
+import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -121,73 +122,59 @@ export function InstallPrompt() {
   if (!showChromium && !showIos) return null;
 
   return (
-    <div
+    <motion.div
       role="dialog"
       aria-live="polite"
       aria-label="Install Concierge One Invoicing"
+      initial={{ opacity: 0, y: 40, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: "spring", stiffness: 380, damping: 32 }}
       className={cn(
         "fixed z-50 no-print",
-        "left-1/2 -translate-x-1/2 bottom-4 w-[min(92vw,420px)]",
-        "sm:left-auto sm:right-6 sm:bottom-6 sm:translate-x-0 sm:w-[380px]"
+        // Phones: float just above the bottom tab bar.
+        "inset-x-3 mx-auto max-w-md bottom-[calc(var(--tabbar-height)+max(0.75rem,var(--safe-bottom))+0.75rem)]",
+        "lg:inset-x-auto lg:right-6 lg:bottom-6 lg:w-[380px]"
       )}
     >
-      <div
-        className={cn(
-          "luxury-card relative p-5",
-          "border-[hsl(43_53%_54%/0.35)]",
-          "shadow-[0_0_0_1px_rgba(201,168,76,0.18),0_20px_60px_-20px_rgba(0,0,0,0.8)]",
-          "backdrop-blur-sm bg-card/95"
-        )}
-      >
+      <div className="luxury-card relative bg-card/95 p-4 shadow-[0_24px_60px_-20px_rgba(15,23,42,0.45)] backdrop-blur-xl">
         <button
           type="button"
           onClick={dismiss}
           aria-label="Dismiss install prompt"
           className={cn(
             "absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center",
-            "rounded-md text-muted-foreground hover:text-foreground",
-            "hover:bg-secondary/60 transition-colors"
+            "rounded-full bg-secondary text-muted-foreground hover:text-foreground",
+            "transition-colors"
           )}
         >
-          <X className="h-4 w-4" aria-hidden="true" />
+          <X className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
 
-        <div className="flex items-start gap-3 pr-6">
+        <div className="flex items-center gap-3 pr-8">
           <div
-            className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-md",
-              "bg-[hsl(43_53%_54%/0.12)] border border-[hsl(43_53%_54%/0.35)]"
-            )}
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-foreground text-background"
             aria-hidden="true"
           >
-            {showIos ? (
-              <Share className="h-5 w-5 gold-text" />
-            ) : (
-              <Download className="h-5 w-5 gold-text" />
-            )}
+            {showIos ? <Share className="h-5 w-5" /> : <Download className="h-5 w-5" />}
           </div>
 
           <div className="min-w-0 flex-1">
-            <h3 className="serif text-lg leading-tight text-foreground">
+            <h3 className="text-[15px] font-semibold leading-tight text-foreground">
               Install Concierge One
             </h3>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               {showIos
-                ? "Tap the Share icon, then “Add to Home Screen” for fast access."
-                : "Add to your desktop or home screen for fast access."}
+                ? "Tap Share, then “Add to Home Screen”."
+                : "Add it to your desktop or home screen."}
             </p>
           </div>
         </div>
 
-        <div className="mt-4 flex items-center justify-end gap-2">
+        <div className="mt-3 flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={dismiss}
-            className={cn(
-              "inline-flex h-9 items-center rounded-md px-3 text-sm",
-              "text-muted-foreground hover:text-foreground hover:bg-secondary/60",
-              "transition-colors"
-            )}
+            className="inline-flex h-9 items-center rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
             Not now
           </button>
@@ -197,11 +184,10 @@ export function InstallPrompt() {
               onClick={install}
               disabled={installing}
               className={cn(
-                "inline-flex h-9 items-center gap-2 rounded-md px-4 text-sm font-medium",
-                "bg-primary text-primary-foreground",
-                "hover:bg-primary/90 transition-colors",
-                "disabled:opacity-60 disabled:cursor-not-allowed",
-                "shadow-[0_4px_14px_-4px_rgba(201,168,76,0.45)]"
+                "inline-flex h-9 items-center gap-2 rounded-xl px-4 text-sm font-semibold",
+                "bg-foreground text-background active:scale-[0.97]",
+                "hover:bg-foreground/90 transition-[background-color,transform]",
+                "disabled:opacity-60 disabled:cursor-not-allowed"
               )}
             >
               <Download className="h-4 w-4" aria-hidden="true" />
@@ -210,7 +196,7 @@ export function InstallPrompt() {
           ) : null}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 

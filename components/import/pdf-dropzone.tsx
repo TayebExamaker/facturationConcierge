@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useDropzone } from "react-dropzone";
+import { AnimatePresence, motion } from "motion/react";
 import { FileUp, Loader2, Upload, Check, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -178,48 +179,126 @@ export function PdfDropzone({ className }: PdfDropzoneProps) {
   };
 
   return (
-    <div className={cn("space-y-4", className)}>
-      <div
-        {...getRootProps()}
-        className={cn(
-          "luxury-card border-2 border-dashed transition-colors px-6 py-12 sm:py-16 text-center cursor-pointer",
-          isDragActive
-            ? "border-gold/60 bg-gold/5"
-            : "border-border/40 hover:border-gold/40 hover:bg-secondary/30",
-          isDragReject && "border-destructive/60",
-          parsing && "pointer-events-none opacity-70",
-        )}
+    <div className={cn("space-y-5", className)}>
+      <motion.div
+        animate={{ scale: isDragActive ? 1.015 : 1 }}
+        transition={{ type: "spring", stiffness: 400, damping: 30 }}
       >
-        <input {...getInputProps()} aria-label="Upload PDF" />
-        <div className="flex flex-col items-center gap-3">
-          <div className="rounded-full bg-gold/10 text-gold p-4">
+        <div
+          {...getRootProps()}
+          className={cn(
+            "relative cursor-pointer overflow-hidden rounded-3xl border-2 border-dashed bg-card px-6 py-14 text-center transition-colors sm:py-20",
+            isDragActive
+              ? "border-foreground/50 bg-secondary/60"
+              : "border-border hover:border-foreground/30 hover:bg-secondary/30",
+            isDragReject && "border-destructive/60 bg-destructive/5",
+            parsing && "pointer-events-none",
+          )}
+        >
+          <input {...getInputProps()} aria-label="Upload PDF" />
+
+          {/* Scanning beam while the server parses the PDF. */}
+          <AnimatePresence>
             {parsing ? (
-              <Loader2 className="h-8 w-8 animate-spin" />
-            ) : (
-              <Upload className="h-8 w-8" />
-            )}
-          </div>
-          <div>
-            <p className="font-serif text-2xl">
-              {parsing
-                ? "Parsing your PDF…"
-                : isDragActive
-                  ? "Drop to begin parsing"
-                  : "Drop a PDF invoice here"}
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {parsing
-                ? "Extracting line items, totals and metadata"
-                : "or click to browse — only .pdf, up to 25MB"}
-            </p>
-          </div>
-          {fileName && !parsing ? (
-            <div className="text-xs text-muted-foreground flex items-center gap-2 mt-2">
-              <FileUp className="h-3 w-3" />
-              {fileName}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="pointer-events-none absolute inset-0"
+              >
+                <motion.div
+                  className="absolute inset-x-0 h-24 bg-gradient-to-b from-transparent via-foreground/[0.06] to-transparent"
+                  animate={{ y: ["-100%", "400%"] }}
+                  transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+                />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+
+          <div className="relative flex flex-col items-center gap-4">
+            <motion.div
+              animate={
+                parsing
+                  ? { y: 0, rotate: 0 }
+                  : isDragActive
+                    ? { y: -8, rotate: -6 }
+                    : { y: [0, -6, 0] }
+              }
+              transition={
+                parsing || isDragActive
+                  ? { type: "spring", stiffness: 300, damping: 20 }
+                  : { duration: 3, repeat: Infinity, ease: "easeInOut" }
+              }
+              className="relative"
+            >
+              <div className="absolute inset-0 -z-10 scale-150 rounded-full bg-secondary blur-2xl" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-foreground text-background shadow-[0_16px_32px_-12px_rgba(15,23,42,0.6)]">
+                {parsing ? (
+                  <Loader2 className="h-7 w-7 animate-spin" />
+                ) : (
+                  <Upload className="h-7 w-7" />
+                )}
+              </div>
+            </motion.div>
+            <div>
+              <p className="text-xl font-semibold tracking-tight sm:text-2xl">
+                {parsing
+                  ? "Reading your PDF…"
+                  : isDragActive
+                    ? "Drop to start"
+                    : (
+                      <>
+                        <span className="hidden sm:inline">Drop a PDF invoice here</span>
+                        <span className="sm:hidden">Choose a PDF invoice</span>
+                      </>
+                    )}
+              </p>
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                {parsing
+                  ? "Extracting line items, totals and metadata"
+                  : (
+                    <>
+                      <span className="hidden sm:inline">or click to browse — </span>
+                      <span className="sm:hidden">Tap to browse — </span>
+                      PDF only, up to 25 MB
+                    </>
+                  )}
+              </p>
             </div>
-          ) : null}
+            {fileName && !parsing ? (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-1 flex max-w-full items-center gap-2 rounded-full bg-secondary px-3 py-1.5 text-xs text-muted-foreground"
+              >
+                <FileUp className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{fileName}</span>
+              </motion.div>
+            ) : null}
+          </div>
         </div>
+      </motion.div>
+
+      {/* How it works */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        {[
+          { n: 1, label: "Drop the PDF" },
+          { n: 2, label: "Review fields" },
+          { n: 3, label: "Save invoice" },
+        ].map((step, i) => (
+          <motion.div
+            key={step.n}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 + i * 0.07, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            className="luxury-card flex flex-col items-center gap-2 p-3 text-center sm:flex-row sm:p-4 sm:text-left"
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">
+              {step.n}
+            </span>
+            <span className="text-xs font-medium sm:text-sm">{step.label}</span>
+          </motion.div>
+        ))}
       </div>
 
       <Dialog
@@ -228,7 +307,7 @@ export function PdfDropzone({ className }: PdfDropzoneProps) {
           if (!open) handleCancel();
         }}
       >
-        <DialogContent className="max-w-2xl w-[95vw]">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Confirm imported invoice</DialogTitle>
             <DialogDescription>
@@ -238,7 +317,7 @@ export function PdfDropzone({ className }: PdfDropzoneProps) {
           </DialogHeader>
 
           {parsed?.items?.length ? (
-            <div className="rounded-md border border-gold/30 bg-gold/5 px-3 py-2 text-sm">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm">
               <span className="font-medium text-foreground">
                 {parsed.items.length} line item
                 {parsed.items.length === 1 ? "" : "s"} detected
@@ -323,7 +402,7 @@ export function PdfDropzone({ className }: PdfDropzoneProps) {
             </div>
           ) : null}
 
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button
               variant="ghost"
               onClick={handleCancel}

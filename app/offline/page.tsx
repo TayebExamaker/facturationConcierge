@@ -17,27 +17,27 @@ export default function OfflinePage() {
   return (
     <main
       className={
-        "min-h-screen flex items-center justify-center px-6 py-12 " +
+        "min-h-[100dvh] flex items-center justify-center px-6 py-12 " +
         "bg-background text-foreground"
       }
     >
       <div className="w-full max-w-md">
         <div className="luxury-card p-8 sm:p-10 text-center">
-          {/* Inline gold key — matches the manifest icon, no network needed. */}
-          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center">
+          {/* Inline ink key — no network needed. */}
+          <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-secondary">
             <svg
               viewBox="0 0 512 512"
-              width="80"
-              height="80"
+              width="64"
+              height="64"
               role="img"
               aria-label="Concierge One key mark"
               xmlns="http://www.w3.org/2000/svg"
             >
               <defs>
                 <linearGradient id="offline-gold" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#E6CB78" />
-                  <stop offset="50%" stopColor="#C9A84C" />
-                  <stop offset="100%" stopColor="#9C8136" />
+                  <stop offset="0%" stopColor="#334155" />
+                  <stop offset="50%" stopColor="#1E293B" />
+                  <stop offset="100%" stopColor="#0F172A" />
                 </linearGradient>
               </defs>
               <g
@@ -55,7 +55,7 @@ export default function OfflinePage() {
             </svg>
           </div>
 
-          <h1 className="serif text-3xl sm:text-4xl text-foreground">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
             You&apos;re offline
           </h1>
           <div className="gold-divider my-5 mx-auto w-32" />

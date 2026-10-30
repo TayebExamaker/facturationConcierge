@@ -1,11 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/layout/page-shell";
+import { PageHeader } from "@/components/layout/page-header";
 import { StatusPill } from "@/components/invoice/status-pill";
-import { formatInvoiceLabel } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { getInvoice } from "@/app/actions/invoices";
 import { getPaymentInstructions } from "@/app/actions/settings";
 import {
@@ -40,59 +38,41 @@ export default async function InvoiceDetailPage({
   const isEditing = searchParams?.edit === "1";
   const paymentInstructions = isEditing ? await getPaymentInstructions() : undefined;
 
+  if (isEditing) {
+    return (
+      <PageShell>
+        <PageHeader
+          className="mx-auto max-w-4xl"
+          back={{ href: `/invoices/${params.id}`, label: "Back to invoice" }}
+          eyebrow="Editing"
+          title={`Invoice #${inv.invoice_number}`}
+          description={inv.client_name ?? undefined}
+        />
+        <InvoiceFormIsland
+          invoiceId={params.id}
+          defaultValues={invoice}
+          defaultPaymentInstructions={paymentInstructions}
+        />
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell>
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 no-print">
-          <div>
-            <Button asChild variant="ghost" size="sm" className="-ml-3 mb-2">
-              <Link href="/dashboard">
-                <ArrowLeft className="h-4 w-4" />
-                Dashboard
-              </Link>
-            </Button>
-            <p className="text-xs uppercase tracking-[0.25em] text-gold">
-              Invoice
-            </p>
-            <div className="flex items-center gap-3 mt-1">
-              <h1 className="font-serif text-4xl sm:text-5xl">
-                {formatInvoiceLabel(inv.invoice_number, inv.client_name)}
-              </h1>
-              <StatusPill status={inv.status} />
-            </div>
-            <p className="text-sm text-muted-foreground mt-2">
-              {inv.client_name ?? "—"}
-            </p>
-          </div>
-          <InvoiceActionsIsland invoice={inv} />
-        </div>
-
-        <div className="gold-divider no-print" aria-hidden="true" />
-
-        {isEditing ? (
-          <>
-            <div className="flex justify-end no-print">
-              <Button asChild variant="ghost" size="sm">
-                <Link href={`/invoices/${params.id}`}>Back to view</Link>
-              </Button>
-            </div>
-            <InvoiceFormIsland
-              invoiceId={params.id}
-              defaultValues={invoice}
-              defaultPaymentInstructions={paymentInstructions}
-            />
-          </>
-        ) : (
-          <>
-            <div className="flex justify-end no-print">
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/invoices/${params.id}?edit=1`}>Edit invoice</Link>
-              </Button>
-            </div>
-            <InvoicePreviewIsland invoice={invoice} />
-          </>
-        )}
-      </div>
+      <PageHeader
+        back={{ href: "/dashboard", label: "Dashboard" }}
+        wideActions
+        eyebrow={`Invoice #${inv.invoice_number} · ${formatDate(inv.date)}`}
+        title={inv.client_name ?? "—"}
+        badge={<StatusPill status={inv.status} />}
+        description={
+          <span className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+            {formatMoney(Number(inv.total ?? 0), inv.currency ?? "USD")}
+          </span>
+        }
+        actions={<InvoiceActionsIsland invoice={inv} />}
+      />
+      <InvoicePreviewIsland invoice={invoice} />
     </PageShell>
   );
 }

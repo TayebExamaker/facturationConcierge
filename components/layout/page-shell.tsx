@@ -1,36 +1,38 @@
-import * as React from "react";
+"use client";
 
-import { TopNav } from "@/components/layout/top-nav";
+import * as React from "react";
+import { motion } from "motion/react";
+
+import { EASE_OUT } from "@/components/motion/primitives";
 import { cn } from "@/lib/utils";
 
 export interface PageShellProps {
   children: React.ReactNode;
   className?: string;
-  /** Optional max-width override; defaults to Tailwind's `container` utility. */
+  /** Use the full content width instead of the centred container. */
   full?: boolean;
 }
 
+/**
+ * Content frame for every routed page. Navigation chrome lives in
+ * `AppChrome` (root layout); this only handles width, spacing and the
+ * page-enter transition (re-runs on each navigation since `app/template.tsx`
+ * re-mounts the route subtree).
+ */
 export function PageShell({ children, className, full = false }: PageShellProps) {
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <TopNav />
-      <main
-        className={cn(
-          "flex-1 w-full py-6 sm:py-10 lg:py-12",
-          full ? "px-4 sm:px-6 lg:px-10" : "container",
-          className,
-        )}
-      >
-        {children}
-      </main>
-      <footer className="no-print border-t border-border/40 py-6 text-center text-xs text-muted-foreground">
-        <span className="serif tracking-widest uppercase">
-          Concierge One Group Ltd
-        </span>
-        <span className="mx-2 opacity-40">|</span>
-        <span>Luxury invoicing</span>
-      </footer>
-    </div>
+    <motion.main
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: EASE_OUT }}
+      className={cn(
+        "w-full flex-1 pb-6 pt-3 sm:pt-8 lg:pb-14 lg:pt-10",
+        full ? "px-4 sm:px-6 lg:px-10" : "container max-w-6xl",
+        className,
+      )}
+    >
+      {children}
+    </motion.main>
   );
 }
 

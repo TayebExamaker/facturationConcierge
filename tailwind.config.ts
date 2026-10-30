@@ -77,10 +77,25 @@ const config: Config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        shimmer: {
+          from: { backgroundPosition: "200% 0" },
+          to: { backgroundPosition: "-200% 0" },
+        },
+        "route-progress": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(320%)" },
+        },
+        "splash-in": {
+          from: { opacity: "0", transform: "scale(0.92)" },
+          to: { opacity: "1", transform: "scale(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        shimmer: "shimmer 1.8s linear infinite",
+        "route-progress": "route-progress 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite",
+        "splash-in": "splash-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both",
       },
     },
   },

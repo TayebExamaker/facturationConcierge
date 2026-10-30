@@ -43,11 +43,11 @@ export default function OfflineReload() {
         onClick={retry}
         disabled={pending}
         className={cn(
-          "inline-flex h-11 items-center gap-2 rounded-md px-5 text-sm font-medium",
+          "inline-flex h-12 items-center gap-2 rounded-2xl px-6 text-sm font-semibold active:scale-[0.97]",
           "bg-primary text-primary-foreground",
-          "hover:bg-primary/90 transition-colors",
+          "hover:bg-primary/90 transition-[background-color,transform]",
           "disabled:opacity-60 disabled:cursor-not-allowed",
-          "shadow-[0_4px_14px_-4px_rgba(201,168,76,0.45)]"
+          "shadow-[0_10px_24px_-12px_rgba(15,23,42,0.7)]"
         )}
       >
         <RefreshCw
@@ -59,7 +59,7 @@ export default function OfflineReload() {
       <p
         className={cn(
           "text-xs",
-          online ? "text-[hsl(43_53%_54%)]" : "text-muted-foreground"
+          online ? "text-emerald-600" : "text-muted-foreground"
         )}
         aria-live="polite"
       >
