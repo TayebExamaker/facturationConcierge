@@ -11,6 +11,7 @@ import {
 } from "@react-pdf/renderer";
 import { COMPANY, PAYMENT_BLOCK } from "@/lib/company";
 import { formatMoney, formatDate, formatInvoiceLabel } from "@/lib/format";
+import { isCreditNote } from "@/lib/credit-note";
 import type { Invoice } from "@/lib/supabase/types";
 
 // Brand palette — light theme, black accents (matches the on-screen preview).
@@ -295,17 +296,24 @@ export function InvoicePdfDocument({ invoice }: DocProps): React.ReactElement {
   const label =
     invoice.label ||
     formatInvoiceLabel(invoice.invoice_number, invoice.client_name);
+  const credit = isCreditNote(invoice);
+  const docTitle = credit ? "CREDIT NOTE" : "INVOICE";
   // A "to be paid" below the total means part of it was already settled.
+  // Meaningless on a credit note, which only ever shows what is credited.
   const amountPaid =
-    invoice.to_be_paid != null
+    !credit && invoice.to_be_paid != null
       ? Math.round((Number(invoice.total) - Number(invoice.to_be_paid)) * 100) / 100
       : 0;
+  // Credit notes carry refund details (or nothing) — never our bank block.
+  const paymentText = credit
+    ? invoice.payment_instructions?.trim() || ""
+    : invoice.payment_instructions?.trim() || PAYMENT_BLOCK;
 
   return (
     <Document
       title={label}
       author={COMPANY.name}
-      subject={`Invoice ${invoice.invoice_number}`}
+      subject={`${credit ? "Credit note" : "Invoice"} ${invoice.invoice_number}`}
       creator={COMPANY.name}
       producer={COMPANY.name}
     >
@@ -327,7 +335,7 @@ export function InvoicePdfDocument({ invoice }: DocProps): React.ReactElement {
             </View>
           </View>
           <View style={styles.headerRight}>
-            <Text style={styles.invoiceTitle}>INVOICE</Text>
+            <Text style={styles.invoiceTitle}>{docTitle}</Text>
             <Text style={styles.invoiceMeta}>#{invoice.invoice_number}</Text>
             <Text style={styles.invoiceMeta}>{formatDate(invoice.date)}</Text>
           </View>
@@ -338,7 +346,7 @@ export function InvoicePdfDocument({ invoice }: DocProps): React.ReactElement {
         <View style={styles.body}>
           <View style={styles.twoCol}>
             <View style={styles.block}>
-              <Text style={styles.label}>Billed To</Text>
+              <Text style={styles.label}>{credit ? "Credited To" : "Billed To"}</Text>
               <Text style={styles.valueBold}>{invoice.client_name}</Text>
               {invoice.client_address ? (
                 <Text style={styles.value}>{invoice.client_address}</Text>
@@ -347,9 +355,15 @@ export function InvoicePdfDocument({ invoice }: DocProps): React.ReactElement {
             <View style={styles.blockRight}>
               <View style={{ minWidth: 180 }}>
                 <View style={styles.metaRow}>
-                  <Text style={styles.metaLabel}>Invoice #</Text>
+                  <Text style={styles.metaLabel}>{credit ? "Credit note #" : "Invoice #"}</Text>
                   <Text style={styles.metaValue}>{invoice.invoice_number}</Text>
                 </View>
+                {credit && invoice.credited_invoice_number ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Original invoice #</Text>
+                    <Text style={styles.metaValue}>{invoice.credited_invoice_number}</Text>
+                  </View>
+                ) : null}
                 <View style={styles.metaRow}>
                   <Text style={styles.metaLabel}>Date</Text>
                   <Text style={styles.metaValue}>{formatDate(invoice.date)}</Text>
@@ -441,14 +455,18 @@ export function InvoicePdfDocument({ invoice }: DocProps): React.ReactElement {
             ) : null}
             {amountPaid > 0 ? (
               <>
+                {/* Total only adds information when tax/discount/shipping
+                    made it differ from the subtotal. */}
+                {Number(invoice.total) !== Number(invoice.subtotal) ? (
+                  <View style={styles.totalRow}>
+                    <Text style={styles.totalLabel}>Total</Text>
+                    <Text style={styles.totalValue}>
+                      {formatMoney(invoice.total, invoice.currency)}
+                    </Text>
+                  </View>
+                ) : null}
                 <View style={styles.totalRow}>
-                  <Text style={styles.totalLabel}>Total</Text>
-                  <Text style={styles.totalValue}>
-                    {formatMoney(invoice.total, invoice.currency)}
-                  </Text>
-                </View>
-                <View style={styles.totalRow}>
-                  <Text style={styles.totalLabel}>Amount paid</Text>
+                  <Text style={styles.totalLabel}>Payments received</Text>
                   <Text style={styles.totalValue}>
                     -{formatMoney(amountPaid, invoice.currency)}
                   </Text>
@@ -456,9 +474,12 @@ export function InvoicePdfDocument({ invoice }: DocProps): React.ReactElement {
               </>
             ) : null}
             <View style={styles.grandRow}>
-              <Text style={styles.grandLabel}>{amountPaid > 0 ? "Balance due" : "To be paid"}</Text>
+              <Text style={styles.grandLabel}>{credit ? "Total credited" : "To be paid"}</Text>
               <Text style={styles.grandValue}>
-                {formatMoney(invoice.to_be_paid ?? invoice.total, invoice.currency)}
+                {formatMoney(
+                  credit ? invoice.total : invoice.to_be_paid ?? invoice.total,
+                  invoice.currency,
+                )}
               </Text>
             </View>
           </View>
@@ -470,10 +491,16 @@ export function InvoicePdfDocument({ invoice }: DocProps): React.ReactElement {
             </View>
           ) : null}
 
-          {/* Payment details */}
-          <Text style={styles.paymentTitle}>Payment details</Text>
-          <View style={styles.paymentRule} />
-          <PaymentBlock text={invoice.payment_instructions?.trim() || PAYMENT_BLOCK} />
+          {/* Payment details (invoice) / refund details (credit note) */}
+          {paymentText ? (
+            <>
+              <Text style={styles.paymentTitle}>
+                {credit ? "Refund details" : "Payment details"}
+              </Text>
+              <View style={styles.paymentRule} />
+              <PaymentBlock text={paymentText} />
+            </>
+          ) : null}
         </View>
 
         {/* Footer */}
@@ -497,7 +524,8 @@ export async function renderInvoicePdfBlob(invoice: Invoice): Promise<Blob> {
 
 export function invoicePdfFilename(invoice: Invoice): string {
   const pascal = toPascalCase(invoice.client_name);
-  return `${invoice.invoice_number}-${pascal}.pdf`;
+  const suffix = isCreditNote(invoice) ? "-CreditNote" : "";
+  return `${invoice.invoice_number}-${pascal}${suffix}.pdf`;
 }
 
 function toPascalCase(input: string): string {

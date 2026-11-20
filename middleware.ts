@@ -54,9 +54,10 @@ export async function middleware(req: NextRequest) {
 
 // Match everything *except* Next.js internals, static PWA assets, and image
 // optimization — those must stay open so the app shell, service worker, and
-// install prompt all work pre-auth.
+// install prompt all work pre-auth. /api/v1 is the CRM API: it has its own
+// API-key gate (lib/api/core.ts) and must not be redirected to /login.
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|_next/data|favicon.ico|manifest.json|manifest.webmanifest|sw.js|workbox-.*|sw-.*|icons/|brand/|share-target).*)",
+    "/((?!api/v1|_next/static|_next/image|_next/data|favicon.ico|manifest.json|manifest.webmanifest|sw.js|workbox-.*|sw-.*|icons/|brand/|share-target).*)",
   ],
 };

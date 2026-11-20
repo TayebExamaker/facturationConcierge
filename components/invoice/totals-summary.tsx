@@ -361,7 +361,7 @@ export function TotalsSummary({
       {/* Final balance */}
       <div className="flex items-end justify-between">
         <span className="text-base font-bold text-foreground">
-          {showPaid && paid > 0 ? "Balance Due" : "To Be Paid"}
+          To Be Paid
         </span>
         <span className="text-xl font-bold tabular-nums text-foreground">
           {formatMoney(

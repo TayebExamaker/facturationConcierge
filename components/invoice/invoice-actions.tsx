@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { STATUS_TONE } from "@/components/invoice/status-pill";
 import { SPRING_LAYOUT } from "@/components/motion/primitives";
 import { setInvoiceStatus } from "@/app/actions/invoices";
+import { isCreditNote } from "@/lib/credit-note";
 import { cn } from "@/lib/utils";
 import type { Invoice, InvoiceStatus } from "@/lib/supabase/types";
 
@@ -96,7 +97,9 @@ export function InvoiceActions({ invoice, isEditing, className }: InvoiceActions
     try {
       setUpdatingStatus(true);
       await setInvoiceStatus(invoice.id, next);
-      toast.success(`Status updated to ${next}`);
+      toast.success(
+        `Status updated to ${isCreditNote(invoice) && next === "paid" ? "refunded" : next}`,
+      );
       router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to update status");
@@ -106,6 +109,7 @@ export function InvoiceActions({ invoice, isEditing, className }: InvoiceActions
     }
   };
 
+  const credit = isCreditNote(invoice);
   const editHref = isEditing ? `/invoices/${invoice.id}` : `/invoices/${invoice.id}?edit=1`;
 
   return (
@@ -147,7 +151,7 @@ export function InvoiceActions({ invoice, isEditing, className }: InvoiceActions
                 ) : (
                   <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_TONE[s.value].dot)} />
                 )}
-                {s.label}
+                {credit && s.value === "paid" ? "Refunded" : s.label}
               </span>
             </motion.button>
           );

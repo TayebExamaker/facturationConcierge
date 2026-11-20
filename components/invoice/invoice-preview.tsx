@@ -3,6 +3,8 @@ import * as React from "react";
 import { Logo } from "@/components/brand/logo";
 import { COMPANY, PAYMENT_BLOCK } from "@/lib/company";
 import { formatMoney, formatDate } from "@/lib/format";
+import { isCreditNote } from "@/lib/credit-note";
+import type { DocumentType } from "@/lib/supabase/types";
 import { cn } from "@/lib/utils";
 
 export interface InvoicePreviewLine {
@@ -28,6 +30,8 @@ export interface InvoicePreviewData {
   total?: number | null;
   to_be_paid?: number | null;
   notes?: string | null;
+  document_type?: DocumentType | null;
+  credited_invoice_number?: number | null;
 }
 
 export interface InvoicePreviewProps {
@@ -57,6 +61,11 @@ export function InvoicePreview({ invoice, className }: InvoicePreviewProps) {
   const currency = invoice.currency || "USD";
   const totals = computeFallbacks(invoice);
   const items = invoice.items ?? [];
+  const credit = isCreditNote(invoice);
+  // Credit notes show refund details (or nothing), never our bank block.
+  const paymentText = credit
+    ? invoice.payment_instructions?.trim() || ""
+    : invoice.payment_instructions?.trim() || PAYMENT_BLOCK;
 
   return (
     <article
@@ -64,14 +73,14 @@ export function InvoicePreview({ invoice, className }: InvoicePreviewProps) {
         "bg-white text-foreground luxury-card overflow-hidden print:shadow-none print:bg-white print:text-black",
         className,
       )}
-      aria-label="Invoice preview"
+      aria-label={credit ? "Credit note preview" : "Invoice preview"}
     >
       {/* Top — logo + INVOICE title */}
       <header className="px-5 sm:px-8 pt-6 sm:pt-8 pb-2 flex flex-col sm:flex-row items-start justify-between gap-4 sm:gap-6">
         <Logo size={72} />
         <div className="text-left sm:text-right w-full sm:w-auto">
           <h2 className="text-3xl sm:text-5xl font-semibold tracking-tight text-foreground">
-            INVOICE
+            {credit ? "CREDIT NOTE" : "INVOICE"}
           </h2>
           <div className="mt-2 inline-flex items-center gap-2 border border-border rounded-md px-3 py-1.5 text-sm">
             <span className="text-muted-foreground">#</span>
@@ -79,6 +88,14 @@ export function InvoicePreview({ invoice, className }: InvoicePreviewProps) {
               {invoice.invoice_number ?? "—"}
             </span>
           </div>
+          {credit && invoice.credited_invoice_number ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Original invoice{" "}
+              <span className="font-medium tabular-nums text-foreground">
+                #{invoice.credited_invoice_number}
+              </span>
+            </p>
+          ) : null}
         </div>
       </header>
 
@@ -111,7 +128,7 @@ export function InvoicePreview({ invoice, className }: InvoicePreviewProps) {
       {/* To */}
       <section className="px-5 sm:px-8 pb-4 grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm">
         <div>
-          <div className="text-muted-foreground mb-1">To</div>
+          <div className="text-muted-foreground mb-1">{credit ? "Credited to" : "To"}</div>
           <div className="border border-border rounded-md px-3 py-2 min-h-[48px]">
             <div className="font-medium">{invoice.client_name || "—"}</div>
           </div>
@@ -206,19 +223,19 @@ export function InvoicePreview({ invoice, className }: InvoicePreviewProps) {
           ) : null}
           <div className="h-px bg-gold/40 my-2" />
           <TotalRow
-            label="Total"
+            label={credit ? "Total credited" : "Total"}
             value={formatMoney(totals.total, currency)}
             emphasis
           />
-          {totals.toBePaid < totals.total ? (
+          {!credit && totals.toBePaid < totals.total ? (
             <TotalRow
-              label="Amount paid"
+              label="Payments received"
               value={`- ${formatMoney(totals.total - totals.toBePaid, currency)}`}
             />
           ) : null}
-          {totals.toBePaid !== totals.total ? (
+          {!credit && totals.toBePaid !== totals.total ? (
             <TotalRow
-              label={totals.toBePaid < totals.total ? "Balance due" : "To be paid"}
+              label="To be paid"
               value={formatMoney(totals.toBePaid, currency)}
               gold
             />
@@ -236,13 +253,17 @@ export function InvoicePreview({ invoice, className }: InvoicePreviewProps) {
         </section>
       ) : null}
 
-      {/* Payment block */}
-      <section className="px-5 sm:px-8 py-6 border-t border-border/40">
-        <h3 className="font-serif text-base mb-3">Payment Information</h3>
-        <pre className="text-[11px] leading-relaxed font-mono whitespace-pre-wrap break-words bg-secondary/30 print:bg-transparent rounded-md p-4 text-foreground/90">
-{invoice.payment_instructions?.trim() || PAYMENT_BLOCK}
-        </pre>
-      </section>
+      {/* Payment block (invoice) / refund details (credit note) */}
+      {paymentText ? (
+        <section className="px-5 sm:px-8 py-6 border-t border-border/40">
+          <h3 className="font-serif text-base mb-3">
+            {credit ? "Refund Details" : "Payment Information"}
+          </h3>
+          <pre className="text-[11px] leading-relaxed font-mono whitespace-pre-wrap break-words bg-secondary/30 print:bg-transparent rounded-md p-4 text-foreground/90">
+{paymentText}
+          </pre>
+        </section>
+      ) : null}
 
       {/* Footer */}
       <footer className="px-8 pb-6 text-xs text-muted-foreground flex justify-between">

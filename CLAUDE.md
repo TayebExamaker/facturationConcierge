@@ -51,12 +51,14 @@ Light theme, sobre, accents noirs — refonte "app native" (motion partout, mobi
 ## Contrats d'API clés
 
 - `app/actions/invoices.ts` exporte : `listInvoices`, `getInvoice`, `createInvoice`, `updateInvoice`, `deleteInvoice`, `setInvoiceStatus`, `getNextInvoiceNumber`, `checkInvoiceNumberExists`, `importInvoiceFromPdf`, `parseInvoicePdfOnly`, `exportInvoicesCsv`.
+- **Credit notes** : lignes de `public.invoices` avec `document_type = 'credit_note'` (+ `credited_invoice_id` / `credited_invoice_number`, migration `0006`). Même séquence de numéros que les factures. Montants stockés **positifs** ; toute agrégation passe par `signedTotal()` (`lib/credit-note.ts`). Statut `paid` = remboursé (affiché "Refunded"). `payment_instructions` d'un credit note = détails du remboursement, **jamais** le bloc bancaire global. Actions : `createCreditNote(invoiceId, { amount?, refundDetails?, date?, notes? })`, `listCreditNotesFor(invoiceId)`.
 - `lib/pdf/generate.tsx` exporte : `InvoicePdfDocument`, `renderInvoicePdfBlob(invoice)`, `invoicePdfFilename(invoice)`. **Toujours importer en lazy** depuis un client component (`await import("@/lib/pdf/generate")` à l'intérieur d'un handler) — l'import statique casse le SSR.
 - `lib/format.ts` : `formatMoney(amount, currency)`, `formatDate(date)`, `formatInvoiceLabel(num, name)`, `pascalCaseName`, `parseMoneyInput`.
 - Filtres invoice (côté server) : `{ status?, currency?, clientName?, dateFrom?, dateTo? }`. **Ne pas confondre avec** `client / from / to` (état local de la FilterBar).
 - Champ date sur l'invoice : **`date`** (pas `issue_date`). Adresse client : **`client_address`** (pas `delivery_address`).
 - `app/actions/settings.ts` exporte : `getPaymentInstructions`, `isPaymentInstructionsCustomized`, `updatePaymentInstructions(text, applyToExisting?)`, `resetPaymentInstructions`.
 - **Coordonnées bancaires** : la source de vérité est la table `public.app_settings` (une ligne par `company`), éditable depuis `/settings`. `PAYMENT_BLOCK` (constante `lib/company.ts`) n'est plus qu'un **fallback / reset usine**. `invoices.payment_instructions` est un **override par facture** : `null` = suit le bloc global (résolu à la lecture dans `listInvoices` / `getInvoice`). Ne jamais inliner le bloc dans un composant.
+- **API CRM (lecture seule)** : `app/api/v1/*` (summary, unpaid, invoices, invoices/[ref], clients, clients/[key]), helpers dans `lib/api/core.ts`. Auth par clé `CRM_API_KEY` (Bearer ou `X-API-Key`) — `/api/v1` est exclu du middleware cookie, donc **chaque route doit passer par `handler()`/`guard()`**. Impayé = statut ≠ `paid` (aligné sur le dashboard). Doc : `docs/API-CRM.md`.
 
 ## Pièges connus
 

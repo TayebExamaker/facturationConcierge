@@ -7,6 +7,7 @@ import { parseInvoicePdf } from "@/lib/pdf/parse";
 import { invoicesToCsv } from "@/lib/csv/export";
 import { formatInvoiceLabel } from "@/lib/format";
 import { COMPANY_KEY } from "@/lib/company";
+import { CREDIT_LINE_PREFIX, isCreditNote } from "@/lib/credit-note";
 import { getPaymentInstructions } from "./settings";
 import type {
   Invoice,
@@ -357,6 +358,108 @@ export async function parseInvoicePdfOnly(
   };
 }
 
+// ---------- credit notes ----------
+
+export interface CreditNoteOptions {
+  /** Amount to credit. Defaults to the full invoice total. */
+  amount?: number;
+  /** ISO date; defaults to today. */
+  date?: string;
+  /** Refund details printed on the credit note (bank, transfer ref…). */
+  refundDetails?: string | null;
+  notes?: string | null;
+}
+
+/**
+ * Issue a credit note against an invoice. It takes the next number of the
+ * shared sequence, copies the client, and — for a full credit — the invoice
+ * lines, so the accountant can match it line for line. A partial credit gets
+ * a single line. Amounts are stored positive (see lib/credit-note.ts).
+ */
+export async function createCreditNote(
+  invoiceId: string,
+  opts: CreditNoteOptions = {}
+): Promise<Invoice> {
+  const original = await getInvoice(invoiceId);
+  if (!original) throw new Error("Invoice not found");
+  if (isCreditNote(original)) {
+    throw new Error("A credit note cannot itself be credited.");
+  }
+
+  const fullTotal = round2(Number(original.total));
+  const amount = round2(opts.amount ?? fullTotal);
+  if (!(amount > 0)) throw new Error("Credit amount must be greater than zero.");
+  if (amount > fullTotal + 0.005) {
+    throw new Error(
+      `Credit amount (${amount}) exceeds the invoice total (${fullTotal}).`
+    );
+  }
+
+  const isFull = Math.abs(amount - fullTotal) < 0.005;
+  const items: InvoiceItem[] =
+    isFull && (original.items ?? []).length
+      ? original.items.map((it) => ({
+          ...it,
+          description: `${CREDIT_LINE_PREFIX}${it.description}`,
+        }))
+      : [
+          {
+            description: `${isFull ? "Cancellation & refund" : "Partial refund"} - invoice #${original.invoice_number}`,
+            quantity: 1,
+            unit_price: amount,
+            amount,
+          },
+        ];
+  // A full credit mirrors the original's discount/tax/shipping so its totals
+  // block matches the invoice; a partial one is a single flat line.
+  const carryAdjustments = isFull;
+
+  return createInvoice({
+    invoice_number: await getNextInvoiceNumber(),
+    client_name: original.client_name,
+    client_address: original.client_address,
+    date: opts.date || new Date().toISOString().slice(0, 10),
+    payment_terms: null,
+    payment_instructions: opts.refundDetails?.trim() || null,
+    po_number: original.po_number,
+    currency: original.currency,
+    items,
+    subtotal: carryAdjustments ? round2(Number(original.subtotal)) : amount,
+    tax_rate: carryAdjustments ? Number(original.tax_rate) : 0,
+    tax_amount: carryAdjustments ? round2(Number(original.tax_amount)) : 0,
+    discount: carryAdjustments ? round2(Number(original.discount)) : 0,
+    shipping: carryAdjustments ? round2(Number(original.shipping)) : 0,
+    total: amount,
+    to_be_paid: amount,
+    notes: opts.notes?.trim() || null,
+    status: "draft",
+    source: "created",
+    document_type: "credit_note",
+    credited_invoice_id: original.id,
+    credited_invoice_number: original.invoice_number,
+  });
+}
+
+/**
+ * Credit notes issued against an invoice (newest first). Returns [] on a DB
+ * that predates the credit-note columns instead of failing the invoice page.
+ */
+export async function listCreditNotesFor(invoiceId: string): Promise<Invoice[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("*")
+    .eq("company", COMPANY_KEY)
+    .eq("credited_invoice_id", invoiceId)
+    .order("invoice_number", { ascending: false });
+  if (error) return [];
+  return (data ?? []) as Invoice[];
+}
+
+function round2(n: number): number {
+  return Math.round((Number.isFinite(n) ? n : 0) * 100) / 100;
+}
+
 // ---------- helpers ----------
 
 /**
@@ -366,11 +469,17 @@ export async function parseInvoicePdfOnly(
  * once. The settings row is fetched once per call, and only when needed.
  */
 async function withPaymentInstructions(rows: Invoice[]): Promise<Invoice[]> {
-  const needsFallback = rows.some((r) => !r.payment_instructions?.trim());
+  // Credit notes never inherit our bank details: their block holds the refund
+  // details (where the money went), and stays empty when there are none.
+  const needsFallback = rows.some(
+    (r) => !isCreditNote(r) && !r.payment_instructions?.trim()
+  );
   if (!needsFallback) return rows;
   const globalBlock = await getPaymentInstructions();
   return rows.map((r) =>
-    r.payment_instructions?.trim() ? r : { ...r, payment_instructions: globalBlock }
+    isCreditNote(r) || r.payment_instructions?.trim()
+      ? r
+      : { ...r, payment_instructions: globalBlock }
   );
 }
 
@@ -416,6 +525,15 @@ function prepareRow(input: InvoiceInput): Record<string, unknown> {
     source: input.source ?? "created",
     pdf_url: input.pdf_url ?? null,
     company: COMPANY_KEY,
+    // Only sent for credit notes, so plain invoices still insert on a DB that
+    // hasn't run 0006_credit_notes.sql yet (the column defaults to 'invoice').
+    ...(input.document_type === "credit_note"
+      ? {
+          document_type: "credit_note",
+          credited_invoice_id: input.credited_invoice_id ?? null,
+          credited_invoice_number: input.credited_invoice_number ?? null,
+        }
+      : {}),
   };
 }
 

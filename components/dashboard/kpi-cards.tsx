@@ -8,6 +8,7 @@ import { NumberTicker } from "@/components/motion/number-ticker";
 import { FitText } from "@/components/ui/fit-text";
 import { EASE_OUT, Stagger, StaggerItem } from "@/components/motion/primitives";
 import { formatMoney } from "@/lib/format";
+import { isCreditNote, signedTotal } from "@/lib/credit-note";
 import { cn } from "@/lib/utils";
 import type { Invoice } from "@/lib/supabase/types";
 
@@ -24,8 +25,8 @@ export interface KpiCardsProps {
 function sumWhere(invoices: Invoice[], predicate: (i: Invoice) => boolean) {
   return invoices.reduce((acc, inv) => {
     if (!predicate(inv)) return acc;
-    const total = Number((inv as { total?: number }).total ?? 0);
-    return acc + (Number.isFinite(total) ? total : 0);
+    // Credit notes count negative: they cancel what was invoiced.
+    return acc + signedTotal(inv);
   }, 0);
 }
 
@@ -41,15 +42,19 @@ export function KpiCards({
   );
   const mixed = currencies.size > 1;
 
+  // Money sums include credit notes as negatives (signedTotal): they net
+  // against Invoiced, a refunded one (status "paid") against Paid, and an
+  // unrefunded one against Outstanding. Counts cover real invoices only.
+  const docs = invoices.filter((i) => !isCreditNote(i));
   const totalInvoiced = sumWhere(invoices, () => true);
   const totalPaid = sumWhere(invoices, (i) => i.status === "paid");
   const totalOutstanding = sumWhere(
     invoices,
     (i) => i.status === "sent" || i.status === "overdue" || i.status === "draft",
   );
-  const paidCount = invoices.filter((i) => i.status === "paid").length;
-  const openCount = invoices.length - paidCount;
-  const overdueCount = invoices.filter((i) => i.status === "overdue").length;
+  const paidCount = docs.filter((i) => i.status === "paid").length;
+  const openCount = docs.length - paidCount;
+  const overdueCount = docs.filter((i) => i.status === "overdue").length;
   const collected = totalInvoiced > 0 ? Math.min(1, totalPaid / totalInvoiced) : 0;
 
   const money = (n: number) => formatMoney(n, displayCurrency);
@@ -94,7 +99,7 @@ export function KpiCards({
             />
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/60">
-            <span>{invoices.length} invoices</span>
+            <span>{docs.length} invoices</span>
             {overdueCount > 0 ? (
               <span className="inline-flex items-center gap-1.5 text-rose-300">
                 <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />

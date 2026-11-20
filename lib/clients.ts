@@ -7,6 +7,7 @@
 // here are PURE so they can run on the server (server actions) and be unit-
 // reasoned about; the Supabase fetch lives in `app/actions/clients.ts`.
 
+import { signedTotal } from "@/lib/credit-note";
 import type { Invoice } from "@/lib/supabase/types";
 
 export interface ClientCurrencyTotal {
@@ -41,8 +42,8 @@ export function clientKey(name: string | null | undefined): string {
 }
 
 const isPaid = (inv: Invoice) => inv.status === "paid";
-const amountOf = (inv: Invoice) =>
-  Number.isFinite(inv.total) ? inv.total : 0;
+// Credit notes count negative so client totals net out refunds.
+const amountOf = (inv: Invoice) => signedTotal(inv);
 
 /**
  * Group invoices into client summaries, sorted by most recent activity.

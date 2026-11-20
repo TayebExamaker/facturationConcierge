@@ -1,6 +1,7 @@
 /**
- * Facture #3221 (Tan Gera) — prestations du 24 Aug au 11 Sep 2026 (Paris / Austin / retour Dubai),
+ * Facture #3221 (Tan Gera) — prestations du 24 Aug au 16 Nov 2026 (Paris / Austin / Miami / Las Vegas / Seattle),
  * tout ce qui est postérieur à la #3030 réglée le 18 Aug — création ou mise à jour dans Supabase.
+ * Total = balance WhatsApp du 09 Nov 2026 (41,042 usd, arrondie — exact US$ 41,041.86).
  *
  * Facture en USD. Les prestations partagées avec Salim sont coupées en deux
  * (l'autre moitié est sur la #3222). EUR convertis à 1.16 comme sur la #3030.
@@ -20,7 +21,7 @@ const COMPANY_KEY = "concierge-one";
 const INVOICE_NUMBER = 3221;
 const CLIENT_NAME = "Tan Gera";
 const LABEL = `#${INVOICE_NUMBER}-TanGera`;
-const INVOICE_DATE = "2026-10-01";
+const INVOICE_DATE = "2026-10-30";
 const CURRENCY = "USD";
 
 /**
@@ -29,12 +30,25 @@ const CURRENCY = "USD";
  * colonne date (cf. lib/pdf/generate.tsx).
  */
 const ITEMS = [
-  ["DXB -> CDG - Emirates First Class EK073 (PNR QRRTIS)", "29 Aug 2026", 3890.0],
+  ["DXB - CDG - Emirates First Class EK073 (PNR QRRTIS)", "29 Aug 2026", 3890.0],
   ["Dubai VVIP Departure (Booking ID: 154763)", "29 Aug 2026", 900.0],
-  ["Mercedes V-Class CDG -> Paris 16e (Rue de l'Alboni)", "29 Aug 2026", 210.0],
-  ["Cadillac Escalade AUS -> Hyatt Place Four Points - Tan's share (shared transfer)", "08 Sep 2026", 105.0],
-  ["Cadillac Escalade Gatsby Mansion -> AUS - Tan's share (shared transfer)", "11 Sep 2026", 140.0],
-  ["SFO -> DXB - Emirates First Class EK226 (PNR E3N3LF) - Tanuj Gera", "11 Sep 2026", 6850.0],
+  ["Mercedes V-Class CDG - Paris 16e (Rue de l'Alboni)", "29 Aug 2026", 210.0],
+  ["Private van transfer Vincennes - Salle Lokus Reception, Reau", "06 Sep 2026", 202.13],
+  ["Van at disposal - Salle Lokus Reception, Reau, 3-hour minimum", "06-07 Sep 2026", 336.88],
+  ["Cadillac Escalade AUS - Hyatt Place Four Points - Tan's share (shared transfer)", "08 Sep 2026", 105.0],
+  ["Mercedes V-Class Paris 16e - CDG - Tan's share", "08 Sep 2026", 106.68],
+  ["Cadillac Escalade Gatsby Mansion - AUS - Tan's share (shared transfer)", "11 Sep 2026", 140.0],
+  ["SFO - DXB - Emirates First Class EK226 (PNR E3N3LF) - Tanuj Gera", "11 Sep 2026", 6850.0],
+  ["DXB - MIA - Emirates (Ref. ETTC46) - Tanuj Gera", "04 Nov 2026", 4490.0],
+  ["G-Wagon rental Miami, airport pick-up & return - Tan's share (total $5,040 ÷ 2)", "04-10 Nov 2026", 2520.0],
+  ["DXB - LAX - Emirates (PNR JPQTSS) - Archana Arora Gera", "10 Nov 2026", 4590.0],
+  ["LAX - LAS - Delta, front-row seat (Ref. GP3F48) - Archana Arora Gera", "10 Nov 2026", 280.0],
+  ["Cadillac Escalade LAS - Bellagio - Archana Arora Gera", "10 Nov 2026", 180.0],
+  ["Mercedes Sprinter LAS - Bellagio - Tan's share (total $165 ÷ 2)", "10 Nov 2026", 82.5],
+  ["Bellagio, Las Vegas (NV) - Tanuj Gera", "10-16 Nov 2026", 6362.0],
+  ["LAS - SEA - Delta - Tanuj Gera & Archana Arora Gera, 2 of 3 seats (total $3,145, Ref. GO6E2P)", "16 Nov 2026", 2096.67],
+  ["SEA - DXB - Emirates (PNR JMSDUB) - Tan's share (total $7,700 ÷ 2)", "16 Nov 2026", 3850.0],
+  ["SEA - DXB - Emirates (PNR LKSRSW) - Archana Arora Gera", "16 Nov 2026", 3850.0],
 ];
 
 const items = ITEMS.map(([description, when, amount, quantity, unitPrice]) => ({

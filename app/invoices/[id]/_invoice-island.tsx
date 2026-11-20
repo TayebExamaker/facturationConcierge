@@ -1,10 +1,11 @@
 "use client";
 
 import ClientOnly from "@/components/client-only";
+import { CreditNotePanel } from "@/components/invoice/credit-note-panel";
 import { InvoiceActions } from "@/components/invoice/invoice-actions";
 import { InvoiceForm } from "@/components/invoice/invoice-form";
 import { InvoicePreview } from "@/components/invoice/invoice-preview";
-import type { Invoice } from "@/lib/supabase/types";
+import type { DocumentType, Invoice } from "@/lib/supabase/types";
 
 const formSkeleton = (
   <div className="luxury-card animate-pulse p-8">
@@ -39,6 +40,8 @@ export function InvoiceFormIsland(props: {
   invoiceId: string;
   defaultValues: unknown;
   defaultPaymentInstructions?: string;
+  documentType?: DocumentType;
+  creditedInvoiceNumber?: number | null;
 }) {
   return (
     <ClientOnly fallback={formSkeleton}>
@@ -46,6 +49,8 @@ export function InvoiceFormIsland(props: {
         invoiceId={props.invoiceId}
         defaultValues={props.defaultValues as never}
         defaultPaymentInstructions={props.defaultPaymentInstructions}
+        documentType={props.documentType}
+        creditedInvoiceNumber={props.creditedInvoiceNumber}
       />
     </ClientOnly>
   );
@@ -55,6 +60,14 @@ export function InvoicePreviewIsland(props: { invoice: unknown }) {
   return (
     <ClientOnly fallback={previewSkeleton}>
       <InvoicePreview invoice={props.invoice as never} />
+    </ClientOnly>
+  );
+}
+
+export function CreditNotePanelIsland(props: { invoice: Invoice; creditNotes: Invoice[] }) {
+  return (
+    <ClientOnly fallback={null}>
+      <CreditNotePanel invoice={props.invoice} creditNotes={props.creditNotes} />
     </ClientOnly>
   );
 }

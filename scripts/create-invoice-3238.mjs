@@ -1,5 +1,6 @@
 /**
- * Facture #3238 (Overtime Sport Agency FZCO, réf. Ramses) — billets d'avion sept./oct. 2026, montants en USD.
+ * Facture #3238 (Overtime Sport Agency FZCO, réf. Ramses) — billets d'avion sept./oct. 2026, montants en AED.
+ * (La ligne New York - London de Karl & Hugo a été déplacée sur la #3245 HEKING, en EUR.)
  *
  *   node scripts/create-invoice-3238.mjs          # crée, ou met à jour si le n° existe
  *   node scripts/create-invoice-3238.mjs --dry    # affiche les lignes, n'écrit rien
@@ -17,23 +18,24 @@ const INVOICE_NUMBER = 3238;
 const CLIENT_NAME = "Overtime Sport Agency FZCO";
 const LABEL = `#${INVOICE_NUMBER}-OvertimeSportAgencyFZCO`;
 const INVOICE_DATE = "2026-10-05";
-const CURRENCY = "USD";
+const CURRENCY = "AED";
 
 /** Marges en EUR, converties en USD et ajoutées au prix de chaque billet. */
 const EUR_USD = 1.12;
+/** Parité fixe AED/USD. */
+const USD_AED = 3.6725;
 
-/** [description, date de prestation | null, montant USD = billet + marge] */
+/** [description, date de prestation | null, montant USD = billet + marge] — converti en AED ci-dessous */
 const ITEMS = [
   ["Flight Ticket – Dubai - Paris – 19.09.26 – Karl Mwalako Buchmann (LLASKJ)", null, 3800.0 + 1000 * EUR_USD],
   ["Flight Ticket – Paris - Douala – 20.09.26 / 05.10.26 – Hector Bondima Salley (X2JEZV)", null, 4690.0 + 350 * EUR_USD],
-  ["Flight Ticket – New York - London – 27.09.26 – Karl Mwalako Buchmann, Hugo Ekitike (CLEZBB)", null, 13800.0 + 1500 * EUR_USD],
   ["Flight Ticket – Dakar - Istanbul – 12.10.26 – Afiwa Grunitzky (TGECRA)", null, 1800.0 + 600 * EUR_USD],
   ["Flight Ticket – Dubai - Istanbul – 12.10.26 – Vanessa Derradji (F6GS6F)", null, 3300.0 + 712 * EUR_USD],
   ["Flight Ticket – Manchester - Dubai – 07.10.26 – Karl Mwalako Buchmann (M7343W)", null, 2400.0 + 738 * EUR_USD],
 ];
 
 const items = ITEMS.map(([description, when, rawAmount, quantity, unitPrice]) => {
-  const amount = Math.round(rawAmount * 100) / 100;
+  const amount = Math.round(rawAmount * USD_AED * 100) / 100;
   return {
     description: when ? `${description}\n${when}` : description,
     quantity: quantity ?? 1,

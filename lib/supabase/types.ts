@@ -3,6 +3,8 @@
 
 export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue";
 export type InvoiceSource = "created" | "imported";
+/** See supabase/migrations/0006_credit_notes.sql. */
+export type DocumentType = "invoice" | "credit_note";
 
 export interface InvoiceItem {
   description: string;
@@ -35,6 +37,11 @@ export interface Invoice {
   source: InvoiceSource;
   pdf_url: string | null;
   company: string;
+  /** Absent on rows read from a DB that predates 0006 — treat as "invoice". */
+  document_type?: DocumentType;
+  /** Credit notes only: the invoice being credited. */
+  credited_invoice_id?: string | null;
+  credited_invoice_number?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -64,6 +71,9 @@ export interface InvoiceInput {
   status?: InvoiceStatus;
   source?: InvoiceSource;
   pdf_url?: string | null;
+  document_type?: DocumentType;
+  credited_invoice_id?: string | null;
+  credited_invoice_number?: number | null;
 }
 
 // public.app_settings — one row per company (see 0005_app_settings.sql).

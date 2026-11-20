@@ -61,7 +61,7 @@ import {
   type ClientDirectoryEntry,
 } from "@/app/actions/clients";
 import { clientKey } from "@/lib/clients";
-import type { Invoice } from "@/lib/supabase/types";
+import type { DocumentType, Invoice } from "@/lib/supabase/types";
 
 export interface InvoiceFormProps {
   /** When supplied, the form is in edit mode and saves via `updateInvoice`. */
@@ -74,6 +74,10 @@ export interface InvoiceFormProps {
    * PAYMENT_BLOCK constant when not supplied.
    */
   defaultPaymentInstructions?: string;
+  /** "credit_note" relabels the form and swaps bank details for refund details. */
+  documentType?: DocumentType;
+  /** Credit notes only — shown in the preview as "Original invoice #". */
+  creditedInvoiceNumber?: number | null;
   className?: string;
 }
 
@@ -108,8 +112,11 @@ export function InvoiceForm({
   invoiceId,
   defaultValues,
   defaultPaymentInstructions,
+  documentType,
+  creditedInvoiceNumber,
   className,
 }: InvoiceFormProps) {
+  const credit = documentType === "credit_note";
   const router = useRouter();
   // Full-screen editor on phones: hide the tab bar, show our own action bar.
   useImmersive();
@@ -119,12 +126,15 @@ export function InvoiceForm({
 
   // Global block edited in /settings; the constant is only a safety net for
   // callers that don't pass it (or a DB that predates app_settings).
+  // Credit notes default to no block at all: theirs holds refund details.
   const paymentDefault = React.useMemo(
     () =>
-      defaultPaymentInstructions && defaultPaymentInstructions.trim()
-        ? defaultPaymentInstructions
-        : PAYMENT_BLOCK,
-    [defaultPaymentInstructions],
+      credit
+        ? ""
+        : defaultPaymentInstructions && defaultPaymentInstructions.trim()
+          ? defaultPaymentInstructions
+          : PAYMENT_BLOCK,
+    [credit, defaultPaymentInstructions],
   );
 
   const merged = React.useMemo(() => {
@@ -397,7 +407,9 @@ export function InvoiceForm({
             </div>
           </div>
           <div className="shrink-0 text-right">
-            <p className="eyebrow">{invoiceId ? "Editing" : "New invoice"}</p>
+            <p className="eyebrow">
+              {credit ? "Credit note" : invoiceId ? "Editing" : "New invoice"}
+            </p>
             <p className="mt-1 text-2xl font-semibold leading-none tracking-tight tabular-nums sm:text-3xl">
               {typeof invoiceNumberWatched === "number" && invoiceNumberWatched > 0
                 ? `#${invoiceNumberWatched}`
@@ -420,7 +432,7 @@ export function InvoiceForm({
         <div className="grid grid-cols-2 gap-3 p-4 pt-0 sm:gap-4 sm:p-6 sm:pt-0 lg:grid-cols-4">
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label htmlFor="invoice_number">Invoice #</Label>
+              <Label htmlFor="invoice_number">{credit ? "Credit note #" : "Invoice #"}</Label>
               <button
                 type="button"
                 onClick={handleAutofillNumber}
@@ -472,7 +484,7 @@ export function InvoiceForm({
       </FormSection>
 
       {/* Client card */}
-      <FormSection icon={<UserRound />} title="Bill To" delay={0.08}>
+      <FormSection icon={<UserRound />} title={credit ? "Credited To" : "Bill To"} delay={0.08}>
         <div className="grid grid-cols-1 gap-4 p-4 pt-0 sm:p-6 sm:pt-0 lg:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="client_name">Client</Label>
@@ -560,10 +572,10 @@ export function InvoiceForm({
           overridable per invoice (an edit here only affects this invoice). */}
       <FormSection
         icon={<Landmark />}
-        title="Payment Instructions"
+        title={credit ? "Refund Details" : "Payment Instructions"}
         delay={0.24}
         aside={
-          <button
+          credit ? undefined : <button
             type="button"
             onClick={() =>
               setValue("payment_instructions" as never, paymentDefault as never, {
@@ -579,11 +591,22 @@ export function InvoiceForm({
       >
         <div className="space-y-2 p-4 pt-0 sm:p-6 sm:pt-0">
           <Textarea
-            placeholder="Card paiement, bank details, crypto…"
-            rows={14}
+            placeholder={
+              credit
+                ? "Refunded on … by bank transfer to …\nIBAN: …\nTransfer reference: …"
+                : "Card paiement, bank details, crypto…"
+            }
+            rows={credit ? 8 : 14}
             className="font-mono text-xs leading-relaxed sm:text-xs"
             {...register("payment_instructions" as never)}
           />
+          {credit ? (
+            <p className="text-[11px] text-muted-foreground">
+              Shown in the “Refund details” section of the credit note. Leave
+              empty to omit the section — our bank details are never printed
+              on a credit note.
+            </p>
+          ) : (
           <p className="text-[11px] text-muted-foreground">
             Shown in the “Payment Information” section of the preview and PDF.
             Lines that end with “:” render as section headings in the PDF.
@@ -597,6 +620,7 @@ export function InvoiceForm({
             </Link>
             .
           </p>
+          )}
         </div>
       </FormSection>
 
@@ -693,10 +717,18 @@ export function InvoiceForm({
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="p-0 pt-6 sm:max-w-4xl sm:p-0">
           <DialogHeader className="px-5 sm:px-6 sm:pt-6">
-            <DialogTitle>Invoice Preview</DialogTitle>
+            <DialogTitle>{credit ? "Credit Note Preview" : "Invoice Preview"}</DialogTitle>
           </DialogHeader>
           <div className="p-3 pt-0 sm:p-6 sm:pt-0">
-            <InvoicePreview invoice={getValues() as never} />
+            <InvoicePreview
+              invoice={
+                {
+                  ...getValues(),
+                  document_type: documentType,
+                  credited_invoice_number: creditedInvoiceNumber,
+                } as never
+              }
+            />
           </div>
         </DialogContent>
       </Dialog>

@@ -7,6 +7,8 @@ import type { InvoiceStatus } from "@/lib/supabase/types";
 export interface StatusPillProps
   extends Omit<BadgeProps, "variant" | "children"> {
   status: InvoiceStatus | string | null | undefined;
+  /** Credit notes read "Refunded" instead of "Paid". */
+  creditNote?: boolean;
 }
 
 /** Soft semantic tones: tinted fill + matching dot. */
@@ -22,12 +24,13 @@ function toneFor(status: string | null | undefined) {
   return STATUS_TONE[s] ?? STATUS_TONE.draft;
 }
 
-function labelFor(status: string | null | undefined): string {
+export function labelFor(status: string | null | undefined, creditNote = false): string {
   const s = (status ?? "draft").toLowerCase();
+  if (creditNote && s === "paid") return "Refunded";
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function StatusPill({ status, className, ...props }: StatusPillProps) {
+export function StatusPill({ status, creditNote, className, ...props }: StatusPillProps) {
   const tone = toneFor(status);
   return (
     <Badge
@@ -36,7 +39,7 @@ export function StatusPill({ status, className, ...props }: StatusPillProps) {
       {...props}
     >
       <span className={cn("h-1.5 w-1.5 rounded-full", tone.dot)} aria-hidden="true" />
-      {labelFor(status)}
+      {labelFor(status, creditNote)}
     </Badge>
   );
 }

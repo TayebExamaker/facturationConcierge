@@ -41,6 +41,7 @@ import {
 import { StatusPill } from "@/components/invoice/status-pill";
 import { Avatar, EASE_OUT, SPRING_LAYOUT } from "@/components/motion/primitives";
 import { formatMoney, formatDate, formatInvoiceLabel } from "@/lib/format";
+import { isCreditNote } from "@/lib/credit-note";
 import { cn } from "@/lib/utils";
 import { deleteInvoice, setInvoiceStatus } from "@/app/actions/invoices";
 import type { Invoice } from "@/lib/supabase/types";
@@ -341,6 +342,7 @@ function DesktopInvoiceTable({ invoices }: { invoices: Invoice[] }) {
                       </span>
                       <span className="block font-mono text-[11px] text-muted-foreground xl:hidden">
                         #{inv.invoice_number}
+                        {isCreditNote(inv) ? " · Credit note" : ""}
                       </span>
                     </span>
                   </div>
@@ -349,17 +351,21 @@ function DesktopInvoiceTable({ invoices }: { invoices: Invoice[] }) {
                   <span className="block max-w-[18ch] truncate" title={label}>
                     {label}
                   </span>
+                  {isCreditNote(inv) ? (
+                    <span className="block text-[10px] uppercase tracking-wider">Credit note</span>
+                  ) : null}
                 </TableCell>
                 <TableCell className="whitespace-nowrap text-muted-foreground">
                   {inv.date ? formatDate(inv.date) : "—"}
                 </TableCell>
                 <TableCell>
-                  <StatusPill status={inv.status} />
+                  <StatusPill status={inv.status} creditNote={isCreditNote(inv)} />
                 </TableCell>
                 <TableCell className="hidden text-xs capitalize text-muted-foreground xl:table-cell">
                   {inv.source ?? "manual"}
                 </TableCell>
                 <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">
+                  {isCreditNote(inv) ? "-" : ""}
                   {formatMoney(Number(inv.total ?? 0), inv.currency ?? "USD")}
                 </TableCell>
                 <TableCell className="pr-4 text-right" data-row-action>
@@ -500,15 +506,21 @@ function MobileInvoiceRow({
           <p className="truncate text-[15px] font-medium leading-tight">{client}</p>
           <p className="mt-1 truncate text-xs text-muted-foreground">
             <span className="font-mono">#{invoice.invoice_number}</span>
+            {isCreditNote(invoice) ? <span> · Credit note</span> : null}
             <span aria-hidden="true"> · </span>
             {invoice.date ? formatDate(invoice.date) : "—"}
           </p>
         </div>
         <div className="flex max-w-[48%] shrink-0 flex-col items-end gap-1.5">
           <span className="max-w-full truncate text-[clamp(0.8rem,3.8vw,0.9375rem)] font-semibold tabular-nums">
+            {isCreditNote(invoice) ? "-" : ""}
             {formatMoney(Number(invoice.total ?? 0), invoice.currency ?? "USD")}
           </span>
-          <StatusPill status={invoice.status} className="px-2 py-0 text-[10px]" />
+          <StatusPill
+            status={invoice.status}
+            creditNote={isCreditNote(invoice)}
+            className="px-2 py-0 text-[10px]"
+          />
         </div>
       </Link>
       <motion.button

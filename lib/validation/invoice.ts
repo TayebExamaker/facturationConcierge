@@ -54,9 +54,10 @@ const decimal = (schema: z.ZodNumber) => z.preprocess(normalizeDecimal, schema);
 export const lineItemSchema = z.object({
   description: z.string().min(1, "Description is required"),
   quantity: decimal(z.number().min(0)),
-  unit_price: decimal(z.number().min(0)),
+  // Negative prices are allowed for credit lines (refunds, goodwill gestures).
+  unit_price: decimal(z.number()),
   // `amount` is derived (qty * unit_price); not user-editable, computed in persist().
-  amount: decimal(z.number().min(0)),
+  amount: decimal(z.number()),
 });
 
 export type LineItem = z.infer<typeof lineItemSchema>;
