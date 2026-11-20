@@ -45,28 +45,47 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
+function configuredKeys(): string[] {
+  return (process.env.CRM_API_KEY ?? "")
+    .split(",")
+    .map((k) => k.trim())
+    .filter((k) => k.length >= 24);
+}
+
+/** Key sent as `Authorization: Bearer` or `X-API-Key`, or "" when absent. */
+export function keyFromHeaders(req: Request): string {
+  const auth = req.headers.get("authorization") ?? "";
+  const bearer = auth.toLowerCase().startsWith("bearer ")
+    ? auth.slice(7).trim()
+    : "";
+  return bearer || (req.headers.get("x-api-key") ?? "").trim();
+}
+
+/**
+ * Checks a provided key. "disabled" when no key is configured server-side.
+ * Shared by the REST API (header) and the MCP endpoint (header or URL path).
+ */
+export function checkKey(provided: string): "ok" | "invalid" | "disabled" {
+  const keys = configuredKeys();
+  if (keys.length === 0) return "disabled";
+  if (!provided || !keys.some((k) => safeEqual(k, provided))) return "invalid";
+  return "ok";
+}
+
 /**
  * Returns an error response when the request is not authorised, `null` when
  * it may proceed. Usage: `const denied = guard(req); if (denied) return denied;`
  */
 export function guard(req: Request): NextResponse | null {
-  const keys = (process.env.CRM_API_KEY ?? "")
-    .split(",")
-    .map((k) => k.trim())
-    .filter((k) => k.length >= 24);
-  if (keys.length === 0) {
+  const verdict = checkKey(keyFromHeaders(req));
+  if (verdict === "disabled") {
     return apiError(
       503,
       "api_disabled",
       "API disabled: set CRM_API_KEY (≥24 chars) in the server environment.",
     );
   }
-  const auth = req.headers.get("authorization") ?? "";
-  const bearer = auth.toLowerCase().startsWith("bearer ")
-    ? auth.slice(7).trim()
-    : "";
-  const provided = bearer || (req.headers.get("x-api-key") ?? "").trim();
-  if (!provided || !keys.some((k) => safeEqual(k, provided))) {
+  if (verdict === "invalid") {
     return apiError(401, "unauthorized", "Missing or invalid API key.");
   }
   return null;
@@ -110,10 +129,12 @@ const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 /**
  * Unpaid = anything not marked paid. Drafts count: in practice invoices are
  * issued without being moved to "sent", and the dashboard's Outstanding KPI
- * treats them the same way — the API must agree with it.
+ * treats them the same way — the API must agree with it. Documents whose
+ * balance is already 0 (fully prepaid) are not unpaid.
  */
 export function isUnpaid(inv: Invoice): boolean {
-  return inv.status !== "paid";
+  // A draft whose balance is already 0 (prepaid, "Amount paid" = total) is settled.
+  return inv.status !== "paid" && amountDue(inv) !== 0;
 }
 
 /** What the client still owes on this document (signed: credit notes < 0). */

@@ -5,7 +5,7 @@ Auth : header `Authorization: Bearer <CRM_API_KEY>` (ou `X-API-Key: <CRM_API_KEY
 La clé se définit dans la variable d'env `CRM_API_KEY` (≥ 24 caractères ; plusieurs clés séparées par des virgules pour faire une rotation).
 
 Toutes les réponses sont en JSON. Les montants ne sont **jamais additionnés entre devises**. Les credit notes comptent en négatif.
-"Impayé" = tout document dont le statut n'est pas `paid` (même règle que le dashboard), net de ce qui a déjà été encaissé (`amount_paid`).
+"Impayé" = tout document dont le statut n'est pas `paid` et dont le solde (`amount_due`) n'est pas à 0, net de ce qui a déjà été encaissé (`amount_paid`).
 
 | Endpoint | Contenu |
 |---|---|
@@ -28,3 +28,30 @@ curl -H "Authorization: Bearer $CRM_API_KEY" "https://<ton-domaine>/api/v1/invoi
 ```
 
 Erreurs : `{ "error": { "code": "...", "message": "..." } }` — 401 clé invalide, 400 paramètre invalide, 404 introuvable, 503 API non configurée.
+
+---
+
+# Serveur MCP (Claude)
+
+Permet à Claude (claude.ai, app desktop/mobile, Claude Code) de lire les factures et d'enregistrer les paiements.
+
+- **claude.ai / app Claude** : Réglages → Connecteurs → *Ajouter un connecteur personnalisé* → URL :
+  `https://facturation-concierge.vercel.app/api/mcp/<CRM_API_KEY>`
+  (la clé est dans l'URL car ce formulaire n'accepte pas de header — ne partage jamais cette URL).
+- **Claude Code** :
+  `claude mcp add --transport http concierge https://facturation-concierge.vercel.app/api/mcp --header "Authorization: Bearer <CRM_API_KEY>"`
+
+Outils exposés :
+
+| Outil | Rôle |
+|---|---|
+| `get_summary` | Totaux par devise (facturé / payé / impayé) |
+| `list_unpaid` | Impayés, filtrables par client, devise, ancienneté |
+| `search_invoices` | Recherche (client, statut, dates, texte dans les lignes…) |
+| `get_invoice` | Une facture complète |
+| `list_clients` / `get_client` | Annuaire clients et fiche client |
+| `find_invoices_for_payment` | Rapprochement : à partir d'un virement (montant, devise, payeur), propose les factures correspondantes, y compris les combinaisons de 2–3 factures |
+| `record_payment` ✏️ | Enregistre un paiement : solde complet → statut `paid` ; partiel → déduit ("Amount paid") |
+| `set_invoice_status` ✏️ | Change le statut |
+
+Les outils ✏️ écrivent dans la base. Pas de création, d'édition de lignes ni de suppression via MCP.

@@ -59,6 +59,7 @@ Light theme, sobre, accents noirs — refonte "app native" (motion partout, mobi
 - `app/actions/settings.ts` exporte : `getPaymentInstructions`, `isPaymentInstructionsCustomized`, `updatePaymentInstructions(text, applyToExisting?)`, `resetPaymentInstructions`.
 - **Coordonnées bancaires** : la source de vérité est la table `public.app_settings` (une ligne par `company`), éditable depuis `/settings`. `PAYMENT_BLOCK` (constante `lib/company.ts`) n'est plus qu'un **fallback / reset usine**. `invoices.payment_instructions` est un **override par facture** : `null` = suit le bloc global (résolu à la lecture dans `listInvoices` / `getInvoice`). Ne jamais inliner le bloc dans un composant.
 - **API CRM (lecture seule)** : `app/api/v1/*` (summary, unpaid, invoices, invoices/[ref], clients, clients/[key]), helpers dans `lib/api/core.ts`. Auth par clé `CRM_API_KEY` (Bearer ou `X-API-Key`) — `/api/v1` est exclu du middleware cookie, donc **chaque route doit passer par `handler()`/`guard()`**. Impayé = statut ≠ `paid` (aligné sur le dashboard). Doc : `docs/API-CRM.md`.
+- **Serveur MCP (Claude)** : `lib/mcp/server.ts` (outils + JSON-RPC), `lib/mcp/http.ts`, routes `app/api/mcp` (clé en header) et `app/api/mcp/[key]` (clé dans l'URL, pour claude.ai). Streamable HTTP **stateless JSON** (pas de session/SSE). Écritures limitées à `record_payment` / `set_invoice_status`. Même clé `CRM_API_KEY`.
 
 ## Pièges connus
 
