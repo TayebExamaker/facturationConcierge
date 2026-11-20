@@ -52,6 +52,7 @@ Outils exposés :
 | `list_clients` / `get_client` | Annuaire clients et fiche client |
 | `find_invoices_for_payment` | Rapprochement : à partir d'un virement (montant, devise, payeur), propose les factures correspondantes, y compris les combinaisons de 2–3 factures |
 | `record_payment` ✏️ | Enregistre un paiement : solde complet → statut `paid` ; partiel → déduit ("Amount paid") |
+| `record_payments` ✏️ | Même chose par lot (100 max) — pour un rapprochement complet |
 | `set_invoice_status` ✏️ | Change le statut |
 
 Les outils ✏️ écrivent dans la base. Pas de création, d'édition de lignes ni de suppression via MCP.

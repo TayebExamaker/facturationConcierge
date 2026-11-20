@@ -33,7 +33,7 @@ const INSTRUCTIONS = `Invoicing data of CONCIERGE ONE GROUP LTD (luxury concierg
 - amount_due = what the client still owes; amount_paid = already received and deducted on the invoice.
 - Credit notes (type "credit_note") count negative.
 - To reconcile a bank payment: call find_invoices_for_payment, show the candidates to the user, and only call record_payment once the user has confirmed which invoice(s) it settles.
-- Writes are limited to record_payment and set_invoice_status. Always confirm with the user before writing.`;
+- Writes are limited to record_payment, record_payments (batch) and set_invoice_status. Always confirm with the user before writing.`;
 
 // ---------- JSON-RPC plumbing ----------
 
@@ -213,6 +213,43 @@ function brief(inv: Invoice, today = new Date()) {
     amount_paid: a.amount_paid,
     amount_due: a.amount_due,
     items: a.items.map((i) => i.description.replace(/\s+/g, " ").trim()).join(" | ").slice(0, 160),
+  };
+}
+
+/** Shared by record_payment and record_payments. Throws ToolError on refusal. */
+async function applyPayment(args: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const inv = await loadByNumber(invoiceNumber(args.invoice_number));
+  if (isCreditNote(inv)) throw new ToolError(`#${inv.invoice_number} is a credit note; use set_invoice_status "paid" to mark it refunded.`);
+  if (inv.status === "paid") throw new ToolError(`#${inv.invoice_number} is already marked paid.`);
+  const currency = str(args.currency)?.toUpperCase();
+  const invCur = (inv.currency || "USD").toUpperCase();
+  if (currency !== invCur) throw new ToolError(`Currency mismatch: invoice #${inv.invoice_number} is in ${invCur}, payment in ${currency}. Convert first or record it manually.`);
+  const amount = round2(num(args.amount, "amount"));
+  if (amount <= 0) throw new ToolError("amount must be positive");
+
+  const due = amountDue(inv);
+  // Small shortfalls (bank fees) still settle the invoice.
+  const feeTolerance = Math.max(1, due * 0.01);
+  if (amount > due + feeTolerance) {
+    throw new ToolError(`Payment ${amount} ${invCur} exceeds the amount due on #${inv.invoice_number} (${due} ${invCur}). Split it across invoices.`);
+  }
+
+  const before = toApiInvoice(inv);
+  let updated: Invoice;
+  let outcome: string;
+  if (amount >= due - feeTolerance) {
+    updated = await updateInvoice(inv, { status: "paid" });
+    outcome = amount < due ? `marked paid (short by ${round2(due - amount)} ${invCur}, treated as bank fees)` : "marked paid";
+  } else {
+    const newDue = round2(Number(inv.to_be_paid ?? inv.total) - amount);
+    updated = await updateInvoice(inv, { to_be_paid: newDue });
+    outcome = `partial payment recorded, ${newDue} ${invCur} still due`;
+  }
+  return {
+    outcome,
+    payment: { amount, currency: invCur, date: str(args.payment_date) ?? null, reference: str(args.reference) ?? null },
+    before: { status: before.status, amount_paid: before.amount_paid, amount_due: before.amount_due },
+    after: brief(updated),
   };
 }
 
@@ -518,40 +555,54 @@ const TOOLS: Tool[] = [
       additionalProperties: false,
     },
     annotations: { ...WRITE, title: "Record payment" },
+    run: (args) => applyPayment(args),
+  },
+  {
+    name: "record_payments",
+    title: "Record several payments",
+    description:
+      "WRITE. Batch version of record_payment (max 100) for a reconciliation run. Each entry is applied independently: failures (already paid, currency mismatch, overpayment…) are reported without stopping the others. Only call after the user approved the list.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        payments: {
+          type: "array",
+          minItems: 1,
+          maxItems: 100,
+          items: {
+            type: "object",
+            properties: {
+              invoice_number: { type: "integer" },
+              amount: { type: "number" },
+              currency: { type: "string" },
+              payment_date: { type: "string" },
+              reference: { type: "string" },
+            },
+            required: ["invoice_number", "amount", "currency"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["payments"],
+      additionalProperties: false,
+    },
+    annotations: { ...WRITE, title: "Record payments (batch)" },
     run: async (args) => {
-      const inv = await loadByNumber(invoiceNumber(args.invoice_number));
-      if (isCreditNote(inv)) throw new ToolError(`#${inv.invoice_number} is a credit note; use set_invoice_status "paid" to mark it refunded.`);
-      if (inv.status === "paid") throw new ToolError(`#${inv.invoice_number} is already marked paid.`);
-      const currency = str(args.currency)?.toUpperCase();
-      const invCur = (inv.currency || "USD").toUpperCase();
-      if (currency !== invCur) throw new ToolError(`Currency mismatch: invoice #${inv.invoice_number} is in ${invCur}, payment in ${currency}. Convert first or record it manually.`);
-      const amount = round2(num(args.amount, "amount"));
-      if (amount <= 0) throw new ToolError("amount must be positive");
-
-      const due = amountDue(inv);
-      // Small shortfalls (bank fees) still settle the invoice.
-      const feeTolerance = Math.max(1, due * 0.01);
-      if (amount > due + feeTolerance) {
-        throw new ToolError(`Payment ${amount} ${invCur} exceeds the amount due on #${inv.invoice_number} (${due} ${invCur}). Split it across invoices.`);
+      const list = Array.isArray(args.payments) ? (args.payments as Record<string, unknown>[]) : [];
+      if (list.length === 0 || list.length > 100) throw new ToolError("payments must contain 1 to 100 entries");
+      const results: Record<string, unknown>[] = [];
+      // Sequential on purpose: two entries may target the same invoice.
+      for (const p of list) {
+        try {
+          const r = await applyPayment(p);
+          results.push({ invoice_number: p.invoice_number, ok: true, outcome: r.outcome, amount_due_after: (r.after as { amount_due: number }).amount_due });
+        } catch (e) {
+          if (!(e instanceof ToolError)) throw e;
+          results.push({ invoice_number: p.invoice_number, ok: false, error: e.message });
+        }
       }
-
-      const before = toApiInvoice(inv);
-      let updated: Invoice;
-      let outcome: string;
-      if (amount >= due - feeTolerance) {
-        updated = await updateInvoice(inv, { status: "paid" });
-        outcome = amount < due ? `marked paid (short by ${round2(due - amount)} ${invCur}, treated as bank fees)` : "marked paid";
-      } else {
-        const newDue = round2(Number(inv.to_be_paid ?? inv.total) - amount);
-        updated = await updateInvoice(inv, { to_be_paid: newDue });
-        outcome = `partial payment recorded, ${newDue} ${invCur} still due`;
-      }
-      return {
-        outcome,
-        payment: { amount, currency: invCur, date: str(args.payment_date) ?? null, reference: str(args.reference) ?? null },
-        before: { status: before.status, amount_paid: before.amount_paid, amount_due: before.amount_due },
-        after: brief(updated),
-      };
+      const failed = results.filter((r) => !r.ok).length;
+      return { applied: results.length - failed, failed, results };
     },
   },
   {
